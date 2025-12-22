@@ -1,0 +1,216 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Administrator {
+  id            Int     @id @default(autoincrement())
+  name          String
+  email         String  @unique
+  password      String
+  status        Boolean @default(true)
+  token_recover String?
+  otp_code      String?
+  avatar        String  @default("https://imgcdn.stablediffusionweb.com/2024/5/8/852aa9d2-d1f0-4353-b8f0-cd4f45e8c862.jpg")
+
+  @@map("administrators")
+}
+
+model User {
+  id                           Int                @id @default(autoincrement())
+  pid                          String             @unique
+  phone                        String             @unique
+  document                     String             @unique
+  password                     String
+  balance                      Decimal            @default(0.00) @db.Decimal(10, 2)
+  affiliate_balance            Decimal            @default(0.00) @db.Decimal(10, 2)
+  vip_balance                  Decimal            @default(0.00) @db.Decimal(10, 2)
+  vip                          Int                @default(0)
+  affiliate_code               String?            @unique
+  invited_by_user_id           Int?
+  password_withdrawal          String?
+
+  blogger                      Boolean            @default(false)
+  banned                       Boolean            @default(false)
+  status                       Boolean            @default(true)
+  created_at                   DateTime           @default(now())
+  updated_at                   DateTime           @updatedAt
+  last_login_at                DateTime?
+  banned_at                    DateTime?
+  vip_histories                VipHistory[]
+  affiliate_histories          AffiliateHistory[] @relation("AffiliateUser")
+  referred_affiliate_histories AffiliateHistory[] @relation("AffiliateReferrer")
+  chest_withdrawls             ChestWithdrawal[]
+  inviter                      User?              @relation("UserInviter", fields: [invited_by_user_id], references: [id])
+  invitees                     User[]             @relation("UserInviter")
+
+  @@index([status, banned])
+  @@index([created_at])
+  @@index([last_login_at])
+  @@index([affiliate_code])
+  @@index([invited_by_user_id])
+  @@map("users")
+}
+
+// System Configurations
+model Chest {
+  id            Int      @id @default(autoincrement())
+  need_referral Int      @default(0)
+  need_deposit  Decimal  @default(0.00) @db.Decimal(10, 2)
+  need_bet      Decimal  @default(0.00) @db.Decimal(10, 2)
+  bonus         Decimal  @default(0.00) @db.Decimal(10, 2)
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  withdrawals   ChestWithdrawal[]
+
+  @@map("chests")
+}
+
+model ChestWithdrawal {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  chest_id   Int
+  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
+  status     Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  chest      Chest    @relation(fields: [chest_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([chest_id])
+  @@map("chest_withdrawls")
+}
+
+model Mensage {
+  id         Int      @id @default(autoincrement())
+  title      String
+  content    String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("messages")
+}
+
+model ReedemCode {
+  id              Int      @id @default(autoincrement())
+  code            String   @unique
+  max_collect     Int      @default(0)
+  collected_count Int      @default(0)
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("reedem_codes")
+}
+
+model VipLevel {
+  id            Int          @id @default(autoincrement())
+  id_vip        Int          @default(0)
+  goal          Decimal      @default(0.00) @db.Decimal(10, 2)
+  bonus         Decimal      @default(0.00) @db.Decimal(10, 2)
+  vip_histories VipHistory[]
+
+  @@index([id_vip])
+  @@map("vip_levels")
+}
+
+model VipHistory {
+  id           Int      @id @default(autoincrement())
+  user_id      Int
+  vip_level_id Int
+  goal         Decimal  @default(0.00) @db.Decimal(10, 2)
+  bonus        Decimal  @default(0.00) @db.Decimal(10, 2)
+  created_at   DateTime @default(now())
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  vip_level    VipLevel @relation(fields: [vip_level_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([vip_level_id])
+  @@map("vip_histories")
+}
+
+model DefaultAffiliateBonus {
+  id                  Int     @id @default(autoincrement())
+  cpa_level_1         Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_2         Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_3         Decimal @default(0.00) @db.Decimal(10, 2)
+  possibility_bonus   Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_fake       Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_level_1    Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_level_2    Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_level_3    Decimal @default(0.00) @db.Decimal(10, 2)
+  min_deposit_for_cpa Decimal @default(0.00) @db.Decimal(10, 2)
+  min_withdrawal      Decimal @default(0.00) @db.Decimal(10, 2)
+  fake_revshare       Boolean @default(false)
+
+  @@map("default_affiliate_bonuses")
+}
+
+model AffiliateHistory {
+  id                Int      @id @default(autoincrement())
+  user_id           Int
+  affiliate_user_id Int
+  amount            Decimal  @default(0.00) @db.Decimal(10, 2)
+  cpa_level         Int      @default(0)
+  revshare_level    Int      @default(0)
+  type              String
+  created_at        DateTime @default(now())
+  user              User     @relation("AffiliateUser", fields: [user_id], references: [id], onDelete: Cascade)
+  affiliate         User     @relation("AffiliateReferrer", fields: [affiliate_user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([affiliate_user_id])
+  @@map("affiliate_histories")
+}
+
+// Gateway Payments Credentials
+model PradaPayment {
+  id            Int      @id @default(autoincrement())
+  base_url      String   @default("https://api.pradapay.com")
+  client_id     String
+  client_secret String
+  active        Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  @@map("prada_payments")
+}
+
+// Game Providers Credentials
+model PPCloneProvider {
+  id           Int      @id @default(autoincrement())
+  base_url     String   @default("https://api.pragamatic.fun")
+  agent_code   String
+  agent_secret String
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("pp_clone_providers")
+}
+
+model PGCloneProvider {
+  id           Int      @id @default(autoincrement())
+  base_url     String   @default("https://api.apioficialpokergames.site/api/v1/")
+  agent_code   String
+  agent_secret String
+  agent_token  String
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("pg_clone_providers")
+}
