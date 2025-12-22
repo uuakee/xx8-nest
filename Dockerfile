@@ -25,4 +25,4 @@ COPY package.json ./
 
 EXPOSE 7088
 
-CMD ["node", "--experimental-specifier-resolution=node", "dist/src/main.js"]
+CMD ["node", "dist/src/main.js"]
