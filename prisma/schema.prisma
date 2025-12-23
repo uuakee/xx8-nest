@@ -27,32 +27,34 @@ model Administrator {
 }
 
 model User {
-  id                           Int                @id @default(autoincrement())
-  pid                          String             @unique
-  phone                        String             @unique
-  document                     String             @unique
-  password                     String
-  balance                      Decimal            @default(0.00) @db.Decimal(10, 2)
-  affiliate_balance            Decimal            @default(0.00) @db.Decimal(10, 2)
-  vip_balance                  Decimal            @default(0.00) @db.Decimal(10, 2)
-  vip                          Int                @default(0)
-  affiliate_code               String?            @unique
-  invited_by_user_id           Int?
-  password_withdrawal          String?
+  id                  Int     @id @default(autoincrement())
+  pid                 String  @unique
+  phone               String  @unique
+  document            String  @unique
+  password            String
+  balance             Decimal @default(0.00) @db.Decimal(10, 2)
+  affiliate_balance   Decimal @default(0.00) @db.Decimal(10, 2)
+  vip_balance         Decimal @default(0.00) @db.Decimal(10, 2)
+  vip                 Int     @default(0)
+  affiliate_code      String? @unique
+  invited_by_user_id  Int?
+  password_withdrawal String?
 
-  blogger                      Boolean            @default(false)
-  banned                       Boolean            @default(false)
-  status                       Boolean            @default(true)
-  created_at                   DateTime           @default(now())
-  updated_at                   DateTime           @updatedAt
+  blogger                      Boolean              @default(false)
+  banned                       Boolean              @default(false)
+  status                       Boolean              @default(true)
+  created_at                   DateTime             @default(now())
+  updated_at                   DateTime             @updatedAt
   last_login_at                DateTime?
   banned_at                    DateTime?
   vip_histories                VipHistory[]
-  affiliate_histories          AffiliateHistory[] @relation("AffiliateUser")
-  referred_affiliate_histories AffiliateHistory[] @relation("AffiliateReferrer")
+  affiliate_histories          AffiliateHistory[]   @relation("AffiliateUser")
+  referred_affiliate_histories AffiliateHistory[]   @relation("AffiliateReferrer")
   chest_withdrawls             ChestWithdrawal[]
-  inviter                      User?              @relation("UserInviter", fields: [invited_by_user_id], references: [id])
-  invitees                     User[]             @relation("UserInviter")
+  deposits                     Deposit[]
+  level_promo_progresses       LevelPromoProgress[]
+  inviter                      User?                @relation("UserInviter", fields: [invited_by_user_id], references: [id])
+  invitees                     User[]               @relation("UserInviter")
 
   @@index([status, banned])
   @@index([created_at])
@@ -63,15 +65,32 @@ model User {
 }
 
 // System Configurations
+model Game {
+  id           Int      @id @default(autoincrement())
+  name         String
+  game_code    String   @unique
+  image        String
+  category     String
+  provider     String
+  is_hot       Boolean  @default(false)
+  is_active    Boolean  @default(true)
+  show_in_home Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@index([game_code, provider, name, id])
+  @@map("games")
+}
+
 model Chest {
-  id            Int      @id @default(autoincrement())
-  need_referral Int      @default(0)
-  need_deposit  Decimal  @default(0.00) @db.Decimal(10, 2)
-  need_bet      Decimal  @default(0.00) @db.Decimal(10, 2)
-  bonus         Decimal  @default(0.00) @db.Decimal(10, 2)
-  is_active     Boolean  @default(true)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id            Int               @id @default(autoincrement())
+  need_referral Int               @default(0)
+  need_deposit  Decimal           @default(0.00) @db.Decimal(10, 2)
+  need_bet      Decimal           @default(0.00) @db.Decimal(10, 2)
+  bonus         Decimal           @default(0.00) @db.Decimal(10, 2)
+  is_active     Boolean           @default(true)
+  created_at    DateTime          @default(now())
+  updated_at    DateTime          @updatedAt
   withdrawals   ChestWithdrawal[]
 
   @@map("chests")
@@ -121,6 +140,8 @@ model VipLevel {
   id_vip        Int          @default(0)
   goal          Decimal      @default(0.00) @db.Decimal(10, 2)
   bonus         Decimal      @default(0.00) @db.Decimal(10, 2)
+  weekly_bonus  Decimal      @default(0.00) @db.Decimal(10, 2)
+  monthly_bonus Decimal      @default(0.00) @db.Decimal(10, 2)
   vip_histories VipHistory[]
 
   @@index([id_vip])
@@ -133,6 +154,7 @@ model VipHistory {
   vip_level_id Int
   goal         Decimal  @default(0.00) @db.Decimal(10, 2)
   bonus        Decimal  @default(0.00) @db.Decimal(10, 2)
+  kind         String   @default("upgrade")
   created_at   DateTime @default(now())
   user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
   vip_level    VipLevel @relation(fields: [vip_level_id], references: [id])
@@ -140,6 +162,65 @@ model VipHistory {
   @@index([user_id, created_at])
   @@index([vip_level_id])
   @@map("vip_histories")
+}
+
+model Deposit {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@map("deposits")
+}
+
+model LevelPromoTier {
+  id         Int               @id @default(autoincrement())
+  name       String
+  min_volume Decimal           @default(0.00) @db.Decimal(10, 2)
+  bonuses    LevelPromoBonus[]
+
+  @@map("level_promo_tiers")
+}
+
+model LevelPromoBonus {
+  id          Int            @id @default(autoincrement())
+  tier_id     Int
+  day_index   Int
+  bonus_value Decimal        @default(0.00) @db.Decimal(10, 2)
+  tier        LevelPromoTier @relation(fields: [tier_id], references: [id], onDelete: Cascade)
+
+  @@index([tier_id, day_index])
+  @@map("level_promo_bonuses")
+}
+
+model LevelPromoProgress {
+  id              Int       @id @default(autoincrement())
+  user_id         Int
+  current_day     Int       @default(0)
+  last_checkin_at DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("level_promo_progresses")
+}
+
+model Promotion {
+  id          Int      @id @default(autoincrement())
+  name        String
+  image_url   String
+  target_url  String
+  is_active   Boolean  @default(true)
+  sort_order  Int      @default(0)
+  starts_at   DateTime?
+  ends_at     DateTime?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("promotions")
 }
 
 model DefaultAffiliateBonus {
