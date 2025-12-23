@@ -4,9 +4,10 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { LobsterModule } from './lobster/lobster.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, UsersModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, UsersModule, LobsterModule],
   controllers: [AppController],
   providers: [AppService],
 })

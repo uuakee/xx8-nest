@@ -65,18 +65,30 @@ model User {
 }
 
 // System Configurations
+model Category {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image      String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+  games      Game[]
+
+  @@map("categories")
+}
+
 model Game {
-  id           Int      @id @default(autoincrement())
+  id           Int        @id @default(autoincrement())
   name         String
-  game_code    String   @unique
+  game_code    String     @unique
   image        String
-  category     String
   provider     String
-  is_hot       Boolean  @default(false)
-  is_active    Boolean  @default(true)
-  show_in_home Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  is_hot       Boolean    @default(false)
+  is_active    Boolean    @default(true)
+  show_in_home Boolean    @default(true)
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+  categories   Category[]
 
   @@index([game_code, provider, name, id])
   @@map("games")
@@ -209,16 +221,16 @@ model LevelPromoProgress {
 }
 
 model Promotion {
-  id          Int      @id @default(autoincrement())
-  name        String
-  image_url   String
-  target_url  String
-  is_active   Boolean  @default(true)
-  sort_order  Int      @default(0)
-  starts_at   DateTime?
-  ends_at     DateTime?
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id         Int       @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean   @default(true)
+  sort_order Int       @default(0)
+  starts_at  DateTime?
+  ends_at    DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
 
   @@map("promotions")
 }
