@@ -5,9 +5,10 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { LobsterModule } from './lobster/lobster.module';
+import { SyscomModule } from './syscom/syscom.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, UsersModule, LobsterModule],
+  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, UsersModule, LobsterModule, SyscomModule],
   controllers: [AppController],
   providers: [AppService],
 })
