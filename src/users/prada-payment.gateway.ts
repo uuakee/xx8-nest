@@ -89,9 +89,10 @@ export class PradaPaymentGatewayService {
 
     const apiUrl = this.config.get<string>('API_URL') ?? '';
     const apiUrlTrimmed = apiUrl.replace(/\/+$/, '');
-    const postback = apiUrlTrimmed
-      ? `${apiUrlTrimmed}/webhook/pradapayment`
-      : 'https://example.com/webhook/pradapayment';
+    const postback = "https://steep-swan-81.webhook.cool";
+    // apiUrlTrimmed
+    //   ? `${apiUrlTrimmed}/webhook/pradapayment`
+    //   : 'https://example.com/webhook/pradapayment';
 
     const apiKey = config.api_key;
 
