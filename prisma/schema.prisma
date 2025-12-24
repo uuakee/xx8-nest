@@ -277,8 +277,7 @@ model AffiliateHistory {
 model PradaPayment {
   id            Int      @id @default(autoincrement())
   base_url      String   @default("https://api.pradapay.com")
-  client_id     String
-  client_secret String
+  api_key       String
   active        Boolean  @default(true)
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt

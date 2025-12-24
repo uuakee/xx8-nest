@@ -7,11 +7,7 @@ export class UpdatePradaPaymentDto {
 
   @IsOptional()
   @IsString()
-  client_id?: string;
-
-  @IsOptional()
-  @IsString()
-  client_secret?: string;
+  api_key?: string;
 
   @IsOptional()
   @IsBoolean()
