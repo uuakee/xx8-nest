@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PradaPaymentGatewayService } from './prada-payment.gateway';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pradaGateway: PradaPaymentGatewayService,
+  ) {}
 
   async getBalances(userId: number) {
     const user = await this.prisma.user.findUnique({
@@ -26,5 +30,9 @@ export class UsersService {
       affiliate_balance: user.affiliate_balance,
       vip_balance: user.vip_balance,
     };
+  }
+
+  async createDeposit(userId: number, amount: number) {
+    return this.pradaGateway.createDeposit(userId, amount);
   }
 }
