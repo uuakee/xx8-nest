@@ -8,6 +8,8 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 
 @Injectable()
 export class LobsterService {
@@ -144,6 +146,33 @@ export class LobsterService {
     return this.prisma.pradaPayment.update({
       where: { id: 1 },
       data: { ...dto },
+    });
+  }
+
+  async listMessages() {
+    return this.prisma.mensage.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async createMessage(dto: CreateMessageDto) {
+    return this.prisma.mensage.create({
+      data: {
+        title: dto.title,
+        content: dto.content,
+        is_active: dto.is_active ?? true,
+      },
+    });
+  }
+
+  async updateMessage(id: number, dto: UpdateMessageDto) {
+    const exists = await this.prisma.mensage.findUnique({ where: { id } });
+    if (!exists) {
+      throw new NotFoundException('message_not_found');
+    }
+    return this.prisma.mensage.update({
+      where: { id },
+      data: dto,
     });
   }
 

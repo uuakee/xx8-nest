@@ -16,6 +16,8 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
+import { CreateMessageDto } from './dto/create-message.dto';
+import { UpdateMessageDto } from './dto/update-message.dto';
 
 @Controller('lobster')
 export class LobsterController {
@@ -99,5 +101,26 @@ export class LobsterController {
   @Patch('prada-payment')
   updatePradaPayment(@Body() dto: UpdatePradaPaymentDto) {
     return this.lobsterService.updatePradaPayment(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('messages')
+  listMessages() {
+    return this.lobsterService.listMessages();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('messages')
+  createMessage(@Body() dto: CreateMessageDto) {
+    return this.lobsterService.createMessage(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('messages/:id')
+  updateMessage(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateMessageDto,
+  ) {
+    return this.lobsterService.updateMessage(id, dto);
   }
 }

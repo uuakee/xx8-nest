@@ -11,4 +11,11 @@ export class SyscomService {
       orderBy: { created_at: 'desc' },
     });
   }
+
+  listMessages() {
+    return this.prisma.mensage.findMany({
+      where: { is_active: true },
+      orderBy: { created_at: 'desc' },
+    });
+  }
 }

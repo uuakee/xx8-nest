@@ -9,4 +9,9 @@ export class SyscomController {
   listCategories() {
     return this.syscomService.listCategories();
   }
+
+  @Get('messages')
+  listMessages() {
+    return this.syscomService.listMessages();
+  }
 }
