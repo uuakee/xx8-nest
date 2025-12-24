@@ -7,5 +7,6 @@ import { PradaPaymentGatewayService } from './prada-payment.gateway';
 @Module({
   controllers: [UsersController],
   providers: [UsersService, PrismaService, PradaPaymentGatewayService],
+  exports: [PradaPaymentGatewayService],
 })
 export class UsersModule {}

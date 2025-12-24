@@ -89,10 +89,9 @@ export class PradaPaymentGatewayService {
 
     const apiUrl = this.config.get<string>('API_URL') ?? '';
     const apiUrlTrimmed = apiUrl.replace(/\/+$/, '');
-    const postback = "https://steep-swan-81.webhook.cool";
-    // apiUrlTrimmed
-    //   ? `${apiUrlTrimmed}/webhook/pradapayment`
-    //   : 'https://example.com/webhook/pradapayment';
+    const postback = apiUrlTrimmed
+      ? `${apiUrlTrimmed}/webhook/pradapayment`
+      : 'https://example.com/webhook/pradapayment';
 
     const apiKey = config.api_key;
 
@@ -138,5 +137,53 @@ export class PradaPaymentGatewayService {
       status,
       paymentCode,
     };
+  }
+
+  async handleWebhook(body: {
+    amount?: number;
+    idTransaction?: string;
+    paymentMethod?: string;
+    status?: string;
+  }) {
+    const idTransaction = body?.idTransaction;
+    const status = body?.status;
+    if (!idTransaction || !status) {
+      return { processed: false };
+    }
+
+    if (status !== 'paid') {
+      return { processed: false };
+    }
+
+    const deposit = await this.prisma.deposit.findFirst({
+      where: { reference: idTransaction },
+    });
+    if (!deposit) {
+      return { processed: false };
+    }
+
+    if (deposit.status === 'PAID') {
+      return { processed: true };
+    }
+
+    const now = new Date();
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.deposit.update({
+        where: { id: deposit.id },
+        data: {
+          status: 'PAID',
+          paid_at: now,
+        },
+      });
+      await tx.user.update({
+        where: { id: deposit.user_id },
+        data: {
+          balance: { increment: deposit.amount },
+        },
+      });
+    });
+
+    return { processed: true };
   }
 }
