@@ -228,6 +228,7 @@ model LevelPromoProgress {
 model Promotion {
   id         Int       @id @default(autoincrement())
   name       String
+  icon_url   String
   image_url  String
   target_url String
   is_active  Boolean   @default(true)

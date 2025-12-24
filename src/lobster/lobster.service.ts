@@ -10,6 +10,8 @@ import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
+import { CreatePromotionDto } from './dto/create-promotion.dto';
+import { UpdatePromotionDto } from './dto/update-promotion.dto';
 
 @Injectable()
 export class LobsterService {
@@ -174,6 +176,61 @@ export class LobsterService {
       where: { id },
       data: dto,
     });
+  }
+
+  async listPromotions() {
+    return this.prisma.promotion.findMany({
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+    });
+  }
+
+  async getPromotionById(id: number) {
+    const promotion = await this.prisma.promotion.findUnique({
+      where: { id },
+    });
+    if (!promotion) {
+      throw new NotFoundException('promotion_not_found');
+    }
+    return promotion;
+  }
+
+  async createPromotion(dto: CreatePromotionDto) {
+    return this.prisma.promotion.create({
+      data: {
+        name: dto.name,
+        icon_url: dto.icon_url,
+        image_url: dto.image_url,
+        target_url: dto.target_url,
+        is_active: dto.is_active ?? true,
+        sort_order: dto.sort_order ?? 0,
+        starts_at: dto.starts_at ? new Date(dto.starts_at) : null,
+        ends_at: dto.ends_at ? new Date(dto.ends_at) : null,
+      },
+    });
+  }
+
+  async updatePromotion(id: number, dto: UpdatePromotionDto) {
+    const exists = await this.prisma.promotion.findUnique({ where: { id } });
+    if (!exists) {
+      throw new NotFoundException('promotion_not_found');
+    }
+    return this.prisma.promotion.update({
+      where: { id },
+      data: {
+        ...dto,
+        starts_at: dto.starts_at ? new Date(dto.starts_at) : dto.starts_at,
+        ends_at: dto.ends_at ? new Date(dto.ends_at) : dto.ends_at,
+      },
+    });
+  }
+
+  async deletePromotion(id: number) {
+    const exists = await this.prisma.promotion.findUnique({ where: { id } });
+    if (!exists) {
+      throw new NotFoundException('promotion_not_found');
+    }
+    await this.prisma.promotion.delete({ where: { id } });
+    return { deleted: true };
   }
 
   private async ensureCategoryExists(id: number) {
