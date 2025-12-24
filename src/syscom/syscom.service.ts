@@ -18,4 +18,11 @@ export class SyscomService {
       orderBy: { created_at: 'desc' },
     });
   }
+
+  listPromotions() {
+    return this.prisma.promotion.findMany({
+      where: { is_active: true },
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+    });
+  }
 }

@@ -14,4 +14,9 @@ export class SyscomController {
   listMessages() {
     return this.syscomService.listMessages();
   }
+
+  @Get('promotions')
+  listPromotions() {
+    return this.syscomService.listPromotions();
+  }
 }
