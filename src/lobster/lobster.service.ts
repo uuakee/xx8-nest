@@ -7,6 +7,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
+import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
 
 @Injectable()
 export class LobsterService {
@@ -126,6 +127,23 @@ export class LobsterService {
     return this.prisma.game.update({
       where: { id },
       data: dto,
+    });
+  }
+
+  async getPradaPayment() {
+    const config = await this.prisma.pradaPayment.findUnique({
+      where: { id: 1 },
+    });
+    if (!config) {
+      throw new NotFoundException('prada_payment_not_found');
+    }
+    return config;
+  }
+
+  async updatePradaPayment(dto: UpdatePradaPaymentDto) {
+    return this.prisma.pradaPayment.update({
+      where: { id: 1 },
+      data: { ...dto },
     });
   }
 
