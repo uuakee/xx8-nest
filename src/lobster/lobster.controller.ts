@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
@@ -21,6 +22,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
+import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
 
 @Controller('lobster')
 export class LobsterController {
@@ -158,5 +160,11 @@ export class LobsterController {
   @Delete('promotions/:id')
   deletePromotion(@Param('id', ParseIntPipe) id: number) {
     return this.lobsterService.deletePromotion(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('deposits')
+  adminListDeposits(@Query() query: AdminListDepositsDto) {
+    return this.lobsterService.adminListDeposits(query);
   }
 }

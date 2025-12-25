@@ -65,6 +65,78 @@ model User {
 }
 
 // System Configurations
+model Banner {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  sort_order Int       @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("banners")
+}
+
+model SubBanner {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  sort_order Int       @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("sub_banners")
+}
+
+model PopupBanner {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  sort_order Int       @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("popup_banners")
+}
+
+model PopupIcon {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  direction String    @default("right")
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("popup_icons")
+}
+
+model Setting {
+  id         Int      @id @default(autoincrement())
+  sys_name       String
+  sys_favicon    String
+  sys_logo       String
+  sys_description String?
+  sys_marquee String?
+  sys_support_telegram String?
+  sys_support_whatsapp String?
+  sys_support_email String?
+  min_deposit      Decimal           @default(5.00) @db.Decimal(10, 2)
+  max_deposit      Decimal           @default(5000.00) @db.Decimal(10, 2)
+  min_withdrawal   Decimal           @default(5.00) @db.Decimal(10, 2)
+  max_withdrawal   Decimal           @default(5000.00) @db.Decimal(10, 2)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("settings")
+}
+
 model Category {
   id         Int      @id @default(autoincrement())
   name       String

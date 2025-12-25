@@ -12,6 +12,7 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
+import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
 
 @Injectable()
 export class LobsterService {
@@ -231,6 +232,94 @@ export class LobsterService {
     }
     await this.prisma.promotion.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  async adminListDeposits(filters: AdminListDepositsDto) {
+    const page = filters.page ?? 1;
+    const pageSize = filters.page_size ?? 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {};
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.created_from || filters.created_to) {
+      where.created_at = {};
+      if (filters.created_from) {
+        where.created_at.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        where.created_at.lte = new Date(filters.created_to);
+      }
+    }
+
+    const userWhere: any = {};
+
+    if (filters.user_pid) {
+      userWhere.pid = filters.user_pid;
+    }
+    if (filters.user_phone) {
+      userWhere.phone = filters.user_phone;
+    }
+    if (filters.user_document) {
+      userWhere.document = filters.user_document;
+    }
+
+    if (filters.search) {
+      const q = filters.search;
+      where.OR = [
+        { reference: { contains: q, mode: 'insensitive' } },
+        { request_number: { contains: q, mode: 'insensitive' } },
+        {
+          user: {
+            OR: [
+              { pid: { contains: q, mode: 'insensitive' } },
+              { phone: { contains: q, mode: 'insensitive' } },
+              { document: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+        },
+      ];
+    }
+
+    if (Object.keys(userWhere).length > 0) {
+      where.user = { ...(where.user ?? {}), ...userWhere };
+    }
+
+    const orderByField = filters.order_by ?? 'created_at';
+    const orderDir = filters.order_dir ?? 'desc';
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.deposit.findMany({
+        where,
+        orderBy: { [orderByField]: orderDir },
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+        },
+      }),
+      this.prisma.deposit.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   private async ensureCategoryExists(id: number) {
