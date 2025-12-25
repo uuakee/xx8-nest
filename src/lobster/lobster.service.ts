@@ -235,8 +235,10 @@ export class LobsterService {
   }
 
   async adminListDeposits(filters: AdminListDepositsDto) {
-    const page = filters.page ?? 1;
-    const pageSize = filters.page_size ?? 20;
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
     const skip = (page - 1) * pageSize;
 
     const where: any = {};
