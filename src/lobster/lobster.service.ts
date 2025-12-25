@@ -255,37 +255,28 @@ export class LobsterService {
       }
     }
 
-    const userWhere: any = {};
-
-    if (filters.user_pid) {
-      userWhere.pid = filters.user_pid;
-    }
-    if (filters.user_phone) {
-      userWhere.phone = filters.user_phone;
-    }
-    if (filters.user_document) {
-      userWhere.document = filters.user_document;
-    }
-
     if (filters.search) {
       const q = filters.search;
       where.OR = [
         { reference: { contains: q, mode: 'insensitive' } },
         { request_number: { contains: q, mode: 'insensitive' } },
-        {
-          user: {
-            OR: [
-              { pid: { contains: q, mode: 'insensitive' } },
-              { phone: { contains: q, mode: 'insensitive' } },
-              { document: { contains: q, mode: 'insensitive' } },
-            ],
-          },
-        },
       ];
     }
 
-    if (Object.keys(userWhere).length > 0) {
-      where.user = { ...(where.user ?? {}), ...userWhere };
+    const userConditions: any = {};
+
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_phone) {
+      userConditions.phone = filters.user_phone;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
     }
 
     const orderByField = filters.order_by ?? 'created_at';
