@@ -18,6 +18,9 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
+import { UpdatePpProviderDto } from './dto/update-pp-provider.dto';
+import { UpdatePgProviderDto } from './dto/update-pg-provider.dto';
+import { UpdatePokerProviderDto } from './dto/update-poker-provider.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
@@ -106,6 +109,30 @@ export class LobsterController {
   @Patch('prada-payment')
   updatePradaPayment(@Body() dto: UpdatePradaPaymentDto) {
     return this.lobsterService.updatePradaPayment(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('game-providers')
+  getGameProvidersConfig() {
+    return this.lobsterService.getGameProvidersConfig();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('game-providers/pp-clone')
+  updatePpCloneProvider(@Body() dto: UpdatePpProviderDto) {
+    return this.lobsterService.updatePpCloneProvider(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('game-providers/pg-clone')
+  updatePgCloneProvider(@Body() dto: UpdatePgProviderDto) {
+    return this.lobsterService.updatePgCloneProvider(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('game-providers/poker')
+  updatePokerProvider(@Body() dto: UpdatePokerProviderDto) {
+    return this.lobsterService.updatePokerProvider(dto);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))

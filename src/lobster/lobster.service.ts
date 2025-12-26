@@ -13,6 +13,9 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
+import { UpdatePpProviderDto } from './dto/update-pp-provider.dto';
+import { UpdatePgProviderDto } from './dto/update-pg-provider.dto';
+import { UpdatePokerProviderDto } from './dto/update-poker-provider.dto';
 import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
@@ -162,6 +165,41 @@ export class LobsterService {
 
   async updatePradaPayment(dto: UpdatePradaPaymentDto) {
     return this.prisma.pradaPayment.update({
+      where: { id: 1 },
+      data: { ...dto },
+    });
+  }
+
+  async getGameProvidersConfig() {
+    const [ppClone, pgClone, poker] = await this.prisma.$transaction([
+      this.prisma.pPCloneProvider.findUnique({ where: { id: 1 } }),
+      this.prisma.pGCloneProvider.findUnique({ where: { id: 1 } }),
+      this.prisma.pokerProvider.findUnique({ where: { id: 1 } }),
+    ]);
+
+    return {
+      pp_clone: ppClone ?? { has_config: false },
+      pg_clone: pgClone ?? { has_config: false },
+      poker: poker ?? { has_config: false },
+    };
+  }
+
+  async updatePpCloneProvider(dto: UpdatePpProviderDto) {
+    return this.prisma.pPCloneProvider.update({
+      where: { id: 1 },
+      data: { ...dto },
+    });
+  }
+
+  async updatePgCloneProvider(dto: UpdatePgProviderDto) {
+    return this.prisma.pGCloneProvider.update({
+      where: { id: 1 },
+      data: { ...dto },
+    });
+  }
+
+  async updatePokerProvider(dto: UpdatePokerProviderDto) {
+    return this.prisma.pokerProvider.update({
       where: { id: 1 },
       data: { ...dto },
     });
