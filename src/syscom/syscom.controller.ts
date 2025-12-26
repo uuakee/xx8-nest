@@ -10,6 +10,11 @@ export class SyscomController {
     return this.syscomService.listCategories();
   }
 
+  @Get('categories-with-games')
+  listCategoriesWithGames() {
+    return this.syscomService.listCategoriesWithGames();
+  }
+
   @Get('messages')
   listMessages() {
     return this.syscomService.listMessages();
