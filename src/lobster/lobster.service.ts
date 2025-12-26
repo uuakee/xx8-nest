@@ -13,6 +13,15 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
+import { CreateBannerDto } from './dto/create-banner.dto';
+import { UpdateBannerDto } from './dto/update-banner.dto';
+import { CreateSubBannerDto } from './dto/create-sub-banner.dto';
+import { UpdateSubBannerDto } from './dto/update-sub-banner.dto';
+import { CreatePopupBannerDto } from './dto/create-popup-banner.dto';
+import { UpdatePopupBannerDto } from './dto/update-popup-banner.dto';
+import { CreatePopupIconDto } from './dto/create-popup-icon.dto';
+import { UpdatePopupIconDto } from './dto/update-popup-icon.dto';
+import { UpdateSettingDto } from './dto/update-setting.dto';
 import { UpdatePpProviderDto } from './dto/update-pp-provider.dto';
 import { UpdatePgProviderDto } from './dto/update-pg-provider.dto';
 import { UpdatePokerProviderDto } from './dto/update-poker-provider.dto';
@@ -150,6 +159,191 @@ export class LobsterService {
     return this.prisma.game.update({
       where: { id },
       data: dto,
+    });
+  }
+
+  async listBanners() {
+    return this.prisma.banner.findMany({
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+    });
+  }
+
+  async createBanner(dto: CreateBannerDto) {
+    return this.prisma.banner.create({
+      data: {
+        name: dto.name,
+        image_url: dto.image_url,
+        target_url: dto.target_url,
+        is_active: dto.is_active ?? true,
+        sort_order: dto.sort_order ?? 0,
+      },
+    });
+  }
+
+  async getBannerById(id: number) {
+    const banner = await this.prisma.banner.findUnique({
+      where: { id },
+    });
+    if (!banner) {
+      throw new NotFoundException('banner_not_found');
+    }
+    return banner;
+  }
+
+  async updateBanner(id: number, dto: UpdateBannerDto) {
+    await this.getBannerById(id);
+    return this.prisma.banner.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteBanner(id: number) {
+    await this.getBannerById(id);
+    await this.prisma.banner.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  async listSubBanners() {
+    return this.prisma.subBanner.findMany({
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+    });
+  }
+
+  async createSubBanner(dto: CreateSubBannerDto) {
+    return this.prisma.subBanner.create({
+      data: {
+        name: dto.name,
+        image_url: dto.image_url,
+        target_url: dto.target_url,
+        is_active: dto.is_active ?? true,
+        sort_order: dto.sort_order ?? 0,
+      },
+    });
+  }
+
+  async getSubBannerById(id: number) {
+    const banner = await this.prisma.subBanner.findUnique({
+      where: { id },
+    });
+    if (!banner) {
+      throw new NotFoundException('sub_banner_not_found');
+    }
+    return banner;
+  }
+
+  async updateSubBanner(id: number, dto: UpdateSubBannerDto) {
+    await this.getSubBannerById(id);
+    return this.prisma.subBanner.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deleteSubBanner(id: number) {
+    await this.getSubBannerById(id);
+    await this.prisma.subBanner.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  async listPopupBanners() {
+    return this.prisma.popupBanner.findMany({
+      orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
+    });
+  }
+
+  async createPopupBanner(dto: CreatePopupBannerDto) {
+    return this.prisma.popupBanner.create({
+      data: {
+        name: dto.name,
+        image_url: dto.image_url,
+        target_url: dto.target_url,
+        is_active: dto.is_active ?? true,
+        sort_order: dto.sort_order ?? 0,
+      },
+    });
+  }
+
+  async getPopupBannerById(id: number) {
+    const banner = await this.prisma.popupBanner.findUnique({
+      where: { id },
+    });
+    if (!banner) {
+      throw new NotFoundException('popup_banner_not_found');
+    }
+    return banner;
+  }
+
+  async updatePopupBanner(id: number, dto: UpdatePopupBannerDto) {
+    await this.getPopupBannerById(id);
+    return this.prisma.popupBanner.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deletePopupBanner(id: number) {
+    await this.getPopupBannerById(id);
+    await this.prisma.popupBanner.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  async listPopupIcons() {
+    return this.prisma.popupIcon.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async createPopupIcon(dto: CreatePopupIconDto) {
+    return this.prisma.popupIcon.create({
+      data: {
+        name: dto.name,
+        image_url: dto.image_url,
+        target_url: dto.target_url,
+        is_active: dto.is_active ?? true,
+        direction: dto.direction ?? 'right',
+      },
+    });
+  }
+
+  async getPopupIconById(id: number) {
+    const icon = await this.prisma.popupIcon.findUnique({
+      where: { id },
+    });
+    if (!icon) {
+      throw new NotFoundException('popup_icon_not_found');
+    }
+    return icon;
+  }
+
+  async updatePopupIcon(id: number, dto: UpdatePopupIconDto) {
+    await this.getPopupIconById(id);
+    return this.prisma.popupIcon.update({
+      where: { id },
+      data: dto,
+    });
+  }
+
+  async deletePopupIcon(id: number) {
+    await this.getPopupIconById(id);
+    await this.prisma.popupIcon.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  async getSetting() {
+    const setting = await this.prisma.setting.findUnique({
+      where: { id: 1 },
+    });
+    if (!setting) {
+      throw new NotFoundException('setting_not_found');
+    }
+    return setting;
+  }
+
+  async updateSetting(dto: UpdateSettingDto) {
+    return this.prisma.setting.update({
+      where: { id: 1 },
+      data: { ...dto },
     });
   }
 

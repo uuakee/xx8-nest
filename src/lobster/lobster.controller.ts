@@ -18,6 +18,15 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
+import { CreateBannerDto } from './dto/create-banner.dto';
+import { UpdateBannerDto } from './dto/update-banner.dto';
+import { CreateSubBannerDto } from './dto/create-sub-banner.dto';
+import { UpdateSubBannerDto } from './dto/update-sub-banner.dto';
+import { CreatePopupBannerDto } from './dto/create-popup-banner.dto';
+import { UpdatePopupBannerDto } from './dto/update-popup-banner.dto';
+import { CreatePopupIconDto } from './dto/create-popup-icon.dto';
+import { UpdatePopupIconDto } from './dto/update-popup-icon.dto';
+import { UpdateSettingDto } from './dto/update-setting.dto';
 import { UpdatePpProviderDto } from './dto/update-pp-provider.dto';
 import { UpdatePgProviderDto } from './dto/update-pg-provider.dto';
 import { UpdatePokerProviderDto } from './dto/update-poker-provider.dto';
@@ -109,6 +118,150 @@ export class LobsterController {
   @Patch('prada-payment')
   updatePradaPayment(@Body() dto: UpdatePradaPaymentDto) {
     return this.lobsterService.updatePradaPayment(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('banners')
+  listBanners() {
+    return this.lobsterService.listBanners();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('banners')
+  createBanner(@Body() dto: CreateBannerDto) {
+    return this.lobsterService.createBanner(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('banners/:id')
+  getBannerById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getBannerById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('banners/:id')
+  updateBanner(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateBannerDto,
+  ) {
+    return this.lobsterService.updateBanner(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('banners/:id')
+  deleteBanner(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteBanner(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('sub-banners')
+  listSubBanners() {
+    return this.lobsterService.listSubBanners();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('sub-banners')
+  createSubBanner(@Body() dto: CreateSubBannerDto) {
+    return this.lobsterService.createSubBanner(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('sub-banners/:id')
+  getSubBannerById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getSubBannerById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('sub-banners/:id')
+  updateSubBanner(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateSubBannerDto,
+  ) {
+    return this.lobsterService.updateSubBanner(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('sub-banners/:id')
+  deleteSubBanner(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteSubBanner(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('popup-banners')
+  listPopupBanners() {
+    return this.lobsterService.listPopupBanners();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('popup-banners')
+  createPopupBanner(@Body() dto: CreatePopupBannerDto) {
+    return this.lobsterService.createPopupBanner(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('popup-banners/:id')
+  getPopupBannerById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getPopupBannerById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('popup-banners/:id')
+  updatePopupBanner(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePopupBannerDto,
+  ) {
+    return this.lobsterService.updatePopupBanner(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('popup-banners/:id')
+  deletePopupBanner(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deletePopupBanner(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('popup-icons')
+  listPopupIcons() {
+    return this.lobsterService.listPopupIcons();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('popup-icons')
+  createPopupIcon(@Body() dto: CreatePopupIconDto) {
+    return this.lobsterService.createPopupIcon(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('popup-icons/:id')
+  getPopupIconById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getPopupIconById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('popup-icons/:id')
+  updatePopupIcon(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePopupIconDto,
+  ) {
+    return this.lobsterService.updatePopupIcon(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('popup-icons/:id')
+  deletePopupIcon(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deletePopupIcon(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('setting')
+  getSetting() {
+    return this.lobsterService.getSetting();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('setting')
+  updateSetting(@Body() dto: UpdateSettingDto) {
+    return this.lobsterService.updateSetting(dto);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
