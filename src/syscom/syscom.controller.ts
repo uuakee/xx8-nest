@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param, ParseIntPipe, Query } from '@nestjs/common';
 import { SyscomService } from './syscom.service';
 
 @Controller('syscom')
@@ -13,6 +13,19 @@ export class SyscomController {
   @Get('categories-with-games')
   listCategoriesWithGames() {
     return this.syscomService.listCategoriesWithGames();
+  }
+
+  @Get('categories/:id/games')
+  listCategoryGames(
+    @Param('id', ParseIntPipe) id: number,
+    @Query('page') page?: string,
+    @Query('page_size') pageSize?: string,
+  ) {
+    const p = Number(page);
+    const ps = Number(pageSize);
+    const pageNum = Number.isFinite(p) && p > 0 ? p : 1;
+    const pageSizeNum = Number.isFinite(ps) && ps > 0 ? ps : 20;
+    return this.syscomService.listCategoryGames(id, pageNum, pageSizeNum);
   }
 
   @Get('messages')

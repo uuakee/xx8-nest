@@ -98,4 +98,45 @@ export class SyscomService {
       where: { id: 1 },
     });
   }
+
+  async listCategoryGames(categoryId: number, page: number, pageSize: number) {
+    const skip = (page - 1) * pageSize;
+
+    const where = {
+      is_active: true,
+      categories: {
+        some: {
+          id: categoryId,
+        },
+      },
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.game.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          name: true,
+          game_code: true,
+          image: true,
+          distribution: true,
+          currency: true,
+          game_type: true,
+        },
+      }),
+      this.prisma.game.count({ where }),
+    ]);
+
+    return {
+      category_id: categoryId,
+      page,
+      page_size: pageSize,
+      total,
+      total_pages: Math.ceil(total / pageSize),
+      items,
+    };
+  }
 }
