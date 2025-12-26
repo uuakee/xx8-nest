@@ -19,4 +19,29 @@ export class SyscomController {
   listPromotions() {
     return this.syscomService.listPromotions();
   }
+
+  @Get('banners')
+  listBanners() {
+    return this.syscomService.listBanners();
+  }
+
+  @Get('sub-banners')
+  listSubBanners() {
+    return this.syscomService.listSubBanners();
+  }
+
+  @Get('popup-banners')
+  listPopupBanners() {
+    return this.syscomService.listPopupBanners();
+  }
+
+  @Get('popup-icons')
+  listPopupIcons() {
+    return this.syscomService.listPopupIcons();
+  }
+
+  @Get('settings')
+  getSettings() {
+    return this.syscomService.getSettings();
+  }
 }
