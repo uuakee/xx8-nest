@@ -1,4 +1,10 @@
-import { IsBoolean, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MinLength,
+} from 'class-validator';
 
 export class CreateCategoryDto {
   @IsString()
@@ -12,4 +18,3 @@ export class CreateCategoryDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

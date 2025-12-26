@@ -38,4 +38,3 @@ export class CreatePromotionDto {
   @IsISO8601()
   ends_at?: string;
 }
-

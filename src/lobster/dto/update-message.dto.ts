@@ -15,4 +15,3 @@ export class UpdateMessageDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

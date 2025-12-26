@@ -11,7 +11,12 @@ describe('AppController', () => {
   beforeEach(async () => {
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
-      providers: [AppService, PradaPaymentGatewayService, PrismaService, ConfigService],
+      providers: [
+        AppService,
+        PradaPaymentGatewayService,
+        PrismaService,
+        ConfigService,
+      ],
     }).compile();
 
     appController = app.get<AppController>(AppController);

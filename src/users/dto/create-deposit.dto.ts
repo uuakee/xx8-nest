@@ -5,4 +5,3 @@ export class CreateDepositDto {
   @IsPositive()
   amount!: number;
 }
-

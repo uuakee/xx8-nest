@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { Prisma } from '@prisma/client';
 import { compare } from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminLoginDto } from './dto/admin-login.dto';
@@ -32,7 +37,11 @@ export class LobsterService {
     if (!ok) {
       throw new UnauthorizedException('invalid_credentials');
     }
-    const payload = { sub: admin.id, email: admin.email, role: 'admin' as const };
+    const payload = {
+      sub: admin.id,
+      email: admin.email,
+      role: 'admin' as const,
+    };
     const token = await this.jwt.signAsync(payload);
     return {
       access_token: token,
@@ -107,11 +116,17 @@ export class LobsterService {
       data: {
         name: dto.name,
         game_code: dto.game_code,
-        image: dto.image,
-        provider: dto.provider,
-        is_hot: dto.is_hot ?? false,
-        is_active: dto.is_active ?? true,
-        show_in_home: dto.show_in_home ?? true,
+        game_id: dto.game_id ?? null,
+        image: dto.image ?? null,
+        description: dto.description ?? null,
+        game_type: dto.game_type ?? null,
+        currency: dto.currency ?? undefined,
+        rtp: dto.rtp ?? null,
+        status: dto.status ?? undefined,
+        distribution: dto.distribution ?? null,
+        is_hot: dto.is_hot ?? undefined,
+        is_active: dto.is_active ?? undefined,
+        show_in_home: dto.show_in_home ?? undefined,
       },
     });
   }
@@ -241,20 +256,21 @@ export class LobsterService {
     const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
     const skip = (page - 1) * pageSize;
 
-    const where: any = {};
+    const where: Prisma.DepositWhereInput = {};
 
     if (filters.status) {
       where.status = filters.status;
     }
 
     if (filters.created_from || filters.created_to) {
-      where.created_at = {};
+      const createdAtFilter: Prisma.DateTimeFilter = {};
       if (filters.created_from) {
-        where.created_at.gte = new Date(filters.created_from);
+        createdAtFilter.gte = new Date(filters.created_from);
       }
       if (filters.created_to) {
-        where.created_at.lte = new Date(filters.created_to);
+        createdAtFilter.lte = new Date(filters.created_to);
       }
+      where.created_at = createdAtFilter;
     }
 
     if (filters.search) {
@@ -265,7 +281,7 @@ export class LobsterService {
       ];
     }
 
-    const userConditions: any = {};
+    const userConditions: Prisma.UserWhereInput = {};
 
     if (filters.user_pid) {
       userConditions.pid = filters.user_pid;
@@ -281,13 +297,24 @@ export class LobsterService {
       where.user = { is: userConditions };
     }
 
-    const orderByField = filters.order_by ?? 'created_at';
-    const orderDir = filters.order_dir ?? 'desc';
+    const allowedOrderFields: (keyof Prisma.DepositOrderByWithRelationInput)[] =
+      ['created_at', 'amount', 'status', 'reference'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.DepositOrderByWithRelationInput) ??
+      'created_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'created_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.DepositOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.deposit.findMany({
         where,
-        orderBy: { [orderByField]: orderDir },
+        orderBy,
         skip,
         take: pageSize,
         include: {

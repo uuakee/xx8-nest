@@ -6,7 +6,10 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
-  constructor(config: ConfigService, private readonly prisma: PrismaService) {
+  constructor(
+    config: ConfigService,
+    private readonly prisma: PrismaService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
@@ -27,4 +30,3 @@ export class AdminJwtStrategy extends PassportStrategy(Strategy, 'admin-jwt') {
     return { id: admin.id, email: admin.email, name: admin.name };
   }
 }
-

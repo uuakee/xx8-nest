@@ -42,4 +42,3 @@ export class UpdatePromotionDto {
   @IsISO8601()
   ends_at?: string;
 }
-

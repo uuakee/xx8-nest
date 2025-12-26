@@ -59,4 +59,3 @@ export class AdminListDepositsDto {
   @IsIn(['asc', 'desc'])
   order_dir?: 'asc' | 'desc';
 }
-

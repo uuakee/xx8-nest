@@ -9,7 +9,13 @@ import { SyscomModule } from './syscom/syscom.module';
 import { PrismaService } from './prisma/prisma.service';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, UsersModule, LobsterModule, SyscomModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
+    UsersModule,
+    LobsterModule,
+    SyscomModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
 })

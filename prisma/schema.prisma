@@ -137,6 +137,7 @@ model Setting {
   @@map("settings")
 }
 
+
 model Category {
   id         Int      @id @default(autoincrement())
   name       String
@@ -150,20 +151,38 @@ model Category {
 }
 
 model Game {
-  id           Int        @id @default(autoincrement())
-  name         String
-  game_code    String     @unique
-  image        String
-  provider     String
-  is_hot       Boolean    @default(false)
-  is_active    Boolean    @default(true)
-  show_in_home Boolean    @default(true)
-  created_at   DateTime   @default(now())
-  updated_at   DateTime   @updatedAt
-  categories   Category[]
+  id                    Int       @id @default(autoincrement())
+  
+  name                  String
+  game_code             String
+  game_id               Int?
+  image                 String?
+  description           String?   @db.Text
 
-  @@index([game_code, provider, name, id])
+  categories            Category[]
+  
+  game_type             GameType?
+  currency              String? @default("BRL")
+  rtp                   Decimal?  @db.Decimal(5, 2)
+    
+  status                String    @default("active")
+  distribution          String?
+  is_hot                Boolean   @default(false)
+  is_active             Boolean   @default(true)
+  show_in_home          Boolean   @default(true)
+  
+  views                 Int       @default(0)
+  
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
   @@map("games")
+}
+
+enum GameType {
+  SLOTS
+  FISHING
+  CASINO
 }
 
 model Chest {
@@ -384,3 +403,17 @@ model PGCloneProvider {
 
   @@map("pg_clone_providers")
 }
+
+model PokerProvider {
+  id           Int      @id @default(autoincrement())
+  base_url     String   @default("https://pokersgamessistemas.com/api/v1/")
+  agent_code   String
+  agent_secret String
+  agent_token  String
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  @@map("poker_providers")
+}
+

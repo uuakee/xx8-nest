@@ -13,4 +13,3 @@ export class UpdatePradaPaymentDto {
   @IsBoolean()
   active?: boolean;
 }
-

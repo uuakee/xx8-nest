@@ -1,4 +1,14 @@
-import { IsBoolean, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MinLength,
+} from 'class-validator';
+import { GameType } from '@prisma/client';
 
 export class UpdateGameDto {
   @IsOptional()
@@ -12,13 +22,36 @@ export class UpdateGameDto {
   game_code?: string;
 
   @IsOptional()
+  @IsInt()
+  game_id?: number;
+
+  @IsOptional()
   @IsUrl()
   image?: string;
 
   @IsOptional()
   @IsString()
-  @MinLength(1)
-  provider?: string;
+  description?: string;
+
+  @IsOptional()
+  @IsEnum(GameType)
+  game_type?: GameType;
+
+  @IsOptional()
+  @IsString()
+  currency?: string;
+
+  @IsOptional()
+  @IsNumber()
+  rtp?: number;
+
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @IsOptional()
+  @IsString()
+  distribution?: string;
 
   @IsOptional()
   @IsBoolean()

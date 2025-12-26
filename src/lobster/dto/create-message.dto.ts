@@ -13,4 +13,3 @@ export class CreateMessageDto {
   @IsBoolean()
   is_active?: boolean;
 }
-
