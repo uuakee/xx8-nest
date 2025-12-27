@@ -7,6 +7,7 @@ import { UsersModule } from './users/users.module';
 import { LobsterModule } from './lobster/lobster.module';
 import { SyscomModule } from './syscom/syscom.module';
 import { PrismaService } from './prisma/prisma.service';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { PrismaService } from './prisma/prisma.service';
     UsersModule,
     LobsterModule,
     SyscomModule,
+    GameModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService],
