@@ -29,7 +29,7 @@ export class AppController {
     return this.pradaGateway.handleWebhook(body);
   }
 
-  @Post('cron/pockersgames')
+  @Post('api/webhooks/pokers')
   pokerWebhook(@Body() body: any) {
     return this.gameService.handlePokerWebhook(body);
   }
