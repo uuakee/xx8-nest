@@ -111,6 +111,13 @@ export class GameService {
       return this.launchPokerGame(userId, game, apiBaseUrl);
     }
 
+    if (game.distribution === 'pg-clone') {
+      this.logger.log(
+        `launchGameForUser: routing to PgClone userId=${userId} gameId=${game.id}`,
+      );
+      return this.launchPgCloneGame(userId, game, apiBaseUrl);
+    }
+
     this.logger.warn(
       `launchGameForUser: unsupported_distribution distribution=${game.distribution} gameId=${game.id}`,
     );
@@ -932,6 +939,114 @@ export class GameService {
       game_code: game.game_code,
       game_url: launchData.game_url,
       session_id: launchData.session_id ?? null,
+    };
+  }
+
+  private async launchPgCloneGame(
+    userId: number,
+    game: {
+      id: number;
+      name: string;
+      game_code: string;
+      game_id: string | null;
+      distribution: string;
+    },
+    apiBaseUrl: string | undefined,
+  ) {
+    this.logger.log(
+      `launchPgCloneGame: userId=${userId} gameId=${game.id} code=${game.game_code}`,
+    );
+
+    const config = await this.prisma.pGCloneProvider.findFirst({
+      where: { active: true },
+    });
+
+    if (!config) {
+      this.logger.error('launchPgCloneGame: pg_clone_provider_not_configured');
+      throw new NotFoundException('pg_clone_provider_not_configured');
+    }
+
+    const user = await this.getUser(userId);
+
+    const baseUrl = (apiBaseUrl ?? config.base_url).replace(/\/+$/, '');
+
+    const providerGameCode = game.game_id || game.game_code;
+
+    if (!providerGameCode) {
+      this.logger.error(
+        `launchPgCloneGame: pg_clone_game_without_provider_code gameId=${game.id}`,
+      );
+      throw new BadRequestException('pg_clone_game_without_provider_code');
+    }
+
+    const userBalanceNumber = this.getDecimalNumber(user.balance);
+
+    const payload = {
+      method: 'game_launch',
+      agent_code: config.agent_code,
+      agent_token: config.agent_token,
+      secretKey: config.agent_secret,
+      user_code: String(user.id),
+      provider_code: 'PGSOFT',
+      game_code: providerGameCode,
+      user_balance: userBalanceNumber,
+    };
+
+    const url = `${baseUrl.replace(/\/+$/, '')}/game_launch`;
+
+    this.logger.log(
+      `launchPgCloneGame: calling game_launch url=${url} userId=${user.id} game_code=${providerGameCode} payload=${JSON.stringify(
+        payload,
+      )}`,
+    );
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const rawBody = await response.text();
+
+    if (!response.ok) {
+      this.logger.error(
+        `launchPgCloneGame: pg_clone_launch_failed status=${response.status} body=${rawBody}`,
+      );
+      throw new BadRequestException('pg_clone_launch_failed');
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      this.logger.error(
+        `launchPgCloneGame: pg_clone_launch_invalid_json body=${rawBody}`,
+      );
+      throw new BadRequestException('pg_clone_launch_invalid_response');
+    }
+
+    const launchUrl =
+      data.launchUrl ||
+      data.launch_url ||
+      data.game_url ||
+      data.url ||
+      data.play_url;
+
+    if (!launchUrl || typeof launchUrl !== 'string') {
+      this.logger.error(
+        `launchPgCloneGame: pg_clone_launch_missing_url body=${rawBody}`,
+      );
+      throw new BadRequestException('pg_clone_launch_missing_url');
+    }
+
+    this.logger.log(
+      `launchPgCloneGame: success userId=${user.id} gameId=${game.id}`,
+    );
+
+    return {
+      url: launchUrl,
     };
   }
 }
