@@ -781,14 +781,22 @@ export class GameService {
     const accessToken = authData.access_token;
     const providerGameId = game.game_id ?? game.game_code;
 
+    const userBalance =
+      typeof user.balance === 'number'
+        ? user.balance
+        : Number((user.balance as unknown as Prisma.Decimal).toString());
+
     const url = `${baseUrl}/games/game_launch`;
     const searchParams = new URLSearchParams({
+      agent_token: config.agent_token,
       agent_code: config.agent_code,
+      user_id: String(user.id),
+      provider_code: 'PGSOFT',
       game_id: providerGameId,
-      type: 'CHARGED',
+      user_balance: userBalance.toString(),
       currency: 'BRL',
       lang: 'pt',
-      user_id: String(user.id),
+      type: 'SLOT',
     });
     this.logger.log(
       `launchPokerGame: calling game_launch url=${url} providerGameId=${providerGameId} userId=${user.id} params=${searchParams.toString()}`,
@@ -801,14 +809,16 @@ export class GameService {
       },
     });
 
+    const rawLaunchBody = await launchResponse.text();
+
     if (!launchResponse.ok) {
       this.logger.error(
-        `launchPokerGame: poker_launch_failed status=${launchResponse.status}`,
+        `launchPokerGame: poker_launch_failed status=${launchResponse.status} body=${rawLaunchBody}`,
       );
       throw new BadRequestException('poker_launch_failed');
     }
 
-    const launchData = (await launchResponse.json()) as {
+    const launchData = JSON.parse(rawLaunchBody) as {
       game_url?: string;
       session_id?: string;
     };
