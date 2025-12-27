@@ -781,11 +781,6 @@ export class GameService {
     const accessToken = authData.access_token;
     const providerGameId = game.game_id ?? game.game_code;
 
-    const userBalance =
-      typeof user.balance === 'number'
-        ? user.balance
-        : Number((user.balance as unknown as Prisma.Decimal).toString());
-
     const url = `${baseUrl}/games/game_launch`;
     const searchParams = new URLSearchParams({
       agent_code: config.agent_code,
