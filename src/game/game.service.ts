@@ -124,7 +124,10 @@ export class GameService {
     );
     if (!action || typeof action !== 'string') {
       this.logger.warn('handlePokerWebhook: invalid_action');
-      throw new BadRequestException('invalid_action');
+      return this.pokerError(
+        'INVALID_ACTION',
+        'Unsupported or missing action',
+      );
     }
     if (action === 'balance') {
       return this.handlePokerBalance(body);
@@ -142,13 +145,20 @@ export class GameService {
       return this.handlePokerRollback(body);
     }
     this.logger.warn(`handlePokerWebhook: unsupported_action=${action}`);
-    throw new BadRequestException('unsupported_action');
+    return this.pokerError('INVALID_ACTION', 'Unsupported action');
   }
 
   private getDecimalNumber(value: number | Prisma.Decimal) {
     return typeof value === 'number'
       ? value
       : Number((value as Prisma.Decimal).toString());
+  }
+
+  private pokerError(code: string, description: string) {
+    return {
+      error_code: code,
+      error_description: description,
+    };
   }
 
   private async getUserByPlayerId(playerId: number) {
@@ -176,9 +186,25 @@ export class GameService {
       this.logger.warn(
         `handlePokerBalance: invalid_player_id value=${body?.player_id}`,
       );
-      throw new BadRequestException('invalid_player_id');
+      return this.pokerError('INVALID_PLAYER', 'Invalid player id');
     }
-    const user = await this.getUserByPlayerId(playerIdNumber);
+    this.logger.log(`getUserByPlayerId: player_id=${playerIdNumber}`);
+    const user = await this.prisma.user.findUnique({
+      where: { id: playerIdNumber },
+      select: {
+        id: true,
+        balance: true,
+      },
+    });
+    if (!user) {
+      this.logger.warn(
+        `getUserByPlayerId: user_not_found player_id=${playerIdNumber}`,
+      );
+      return this.pokerError('INVALID_PLAYER', 'Player not found');
+    }
+    this.logger.log(
+      `getUserByPlayerId: ok userId=${user.id} balance=${this.getDecimalNumber(user.balance)}`,
+    );
     const balanceNumber = this.getDecimalNumber(user.balance);
     await (this.prisma as any).gameTransaction.create({
       data: {
@@ -214,24 +240,27 @@ export class GameService {
       this.logger.warn(
         `handlePokerBet: invalid_player_id value=${body?.player_id}`,
       );
-      throw new BadRequestException('invalid_player_id');
+      return this.pokerError('INVALID_PLAYER', 'Invalid player id');
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
       this.logger.warn(
         `handlePokerBet: invalid_amount player_id=${playerIdNumber} amount=${body?.amount}`,
       );
-      throw new BadRequestException('invalid_amount');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid bet amount');
     }
     if (!providerTransactionId) {
       this.logger.warn(
         `handlePokerBet: invalid_transaction_id player_id=${playerIdNumber}`,
       );
-      throw new BadRequestException('invalid_transaction_id');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid transaction id');
     }
     const currency = body?.currency ?? 'BRL';
     const sessionId = body?.session_id ?? null;
     const gameUuid = body?.game_uuid ?? null;
     const roundId = body?.round_id ?? null;
+
+    let errorCode: string | null = null;
+    let errorDescription: string | null = null;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -245,7 +274,9 @@ export class GameService {
         this.logger.warn(
           `handlePokerBet: user_not_found player_id=${playerIdNumber}`,
         );
-        throw new NotFoundException('user_not_found');
+        errorCode = 'INVALID_PLAYER';
+        errorDescription = 'Player not found';
+        return null;
       }
 
       const existing = await (tx as any).gameTransaction.findFirst({
@@ -271,7 +302,9 @@ export class GameService {
         this.logger.warn(
           `handlePokerBet: insufficient_balance player_id=${playerIdNumber} balance=${currentBalance} amount=${amountNumber}`,
         );
-        throw new BadRequestException('insufficient_balance');
+        errorCode = 'INSUFFICIENT_FUNDS';
+        errorDescription = 'Not enough money to continue playing';
+        return null;
       }
 
       const amountDecimal = new Prisma.Decimal(amountNumber);
@@ -315,6 +348,18 @@ export class GameService {
       };
     });
 
+    if (errorCode) {
+      return this.pokerError(
+        errorCode,
+        errorDescription ?? 'Internal server error',
+      );
+    }
+
+    if (!result) {
+      this.logger.error('handlePokerBet: internal_error_null_result');
+      return this.pokerError('INTERNAL_ERROR', 'Internal server error');
+    }
+
     this.logger.log(
       `handlePokerBet: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
     );
@@ -335,24 +380,27 @@ export class GameService {
       this.logger.warn(
         `handlePokerWin: invalid_player_id value=${body?.player_id}`,
       );
-      throw new BadRequestException('invalid_player_id');
+      return this.pokerError('INVALID_PLAYER', 'Invalid player id');
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
       this.logger.warn(
         `handlePokerWin: invalid_amount player_id=${playerIdNumber} amount=${body?.amount}`,
       );
-      throw new BadRequestException('invalid_amount');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid win amount');
     }
     if (!providerTransactionId) {
       this.logger.warn(
         `handlePokerWin: invalid_transaction_id player_id=${playerIdNumber}`,
       );
-      throw new BadRequestException('invalid_transaction_id');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid transaction id');
     }
     const currency = body?.currency ?? 'BRL';
     const sessionId = body?.session_id ?? null;
     const gameUuid = body?.game_uuid ?? null;
     const roundId = body?.round_id ?? null;
+
+    let errorCode: string | null = null;
+    let errorDescription: string | null = null;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -366,7 +414,9 @@ export class GameService {
         this.logger.warn(
           `handlePokerWin: user_not_found player_id=${playerIdNumber}`,
         );
-        throw new NotFoundException('user_not_found');
+        errorCode = 'INVALID_PLAYER';
+        errorDescription = 'Player not found';
+        return null;
       }
 
       const existing = await (tx as any).gameTransaction.findFirst({
@@ -429,6 +479,18 @@ export class GameService {
       };
     });
 
+    if (errorCode) {
+      return this.pokerError(
+        errorCode,
+        errorDescription ?? 'Internal server error',
+      );
+    }
+
+    if (!result) {
+      this.logger.error('handlePokerWin: internal_error_null_result');
+      return this.pokerError('INTERNAL_ERROR', 'Internal server error');
+    }
+
     this.logger.log(
       `handlePokerWin: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
     );
@@ -454,31 +516,37 @@ export class GameService {
       this.logger.warn(
         `handlePokerRefund: invalid_player_id value=${body?.player_id}`,
       );
-      throw new BadRequestException('invalid_player_id');
+      return this.pokerError('INVALID_PLAYER', 'Invalid player id');
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
       this.logger.warn(
         `handlePokerRefund: invalid_amount player_id=${playerIdNumber} amount=${body?.amount}`,
       );
-      throw new BadRequestException('invalid_amount');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid refund amount');
     }
     if (!providerTransactionId) {
       this.logger.warn(
         `handlePokerRefund: invalid_transaction_id player_id=${playerIdNumber}`,
       );
-      throw new BadRequestException('invalid_transaction_id');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid transaction id');
     }
     if (!betProviderTransactionId) {
       this.logger.warn(
         `handlePokerRefund: invalid_bet_transaction_id player_id=${playerIdNumber}`,
       );
-      throw new BadRequestException('invalid_bet_transaction_id');
+      return this.pokerError(
+        'INVALID_TRANSACTION',
+        'Invalid bet transaction id',
+      );
     }
 
     const currency = body?.currency ?? 'BRL';
     const sessionId = body?.session_id ?? null;
     const gameUuid = body?.game_uuid ?? null;
     const roundId = body?.round_id ?? null;
+
+    let errorCode: string | null = null;
+    let errorDescription: string | null = null;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -492,7 +560,9 @@ export class GameService {
         this.logger.warn(
           `handlePokerRefund: user_not_found player_id=${playerIdNumber}`,
         );
-        throw new NotFoundException('user_not_found');
+        errorCode = 'INVALID_PLAYER';
+        errorDescription = 'Player not found';
+        return null;
       }
 
       const existing = await (tx as any).gameTransaction.findFirst({
@@ -568,6 +638,18 @@ export class GameService {
       };
     });
 
+    if (errorCode) {
+      return this.pokerError(
+        errorCode,
+        errorDescription ?? 'Internal server error',
+      );
+    }
+
+    if (!result) {
+      this.logger.error('handlePokerRefund: internal_error_null_result');
+      return this.pokerError('INTERNAL_ERROR', 'Internal server error');
+    }
+
     this.logger.log(
       `handlePokerRefund: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
     );
@@ -587,18 +669,21 @@ export class GameService {
       this.logger.warn(
         `handlePokerRollback: invalid_player_id value=${body?.player_id}`,
       );
-      throw new BadRequestException('invalid_player_id');
+      return this.pokerError('INVALID_PLAYER', 'Invalid player id');
     }
     if (!providerTransactionId) {
       this.logger.warn(
         `handlePokerRollback: invalid_transaction_id player_id=${playerIdNumber}`,
       );
-      throw new BadRequestException('invalid_transaction_id');
+      return this.pokerError('INVALID_TRANSACTION', 'Invalid transaction id');
     }
 
     const rollbackItems = Array.isArray(body?.rollback_transactions)
       ? body.rollback_transactions
       : [];
+
+    let errorCode: string | null = null;
+    let errorDescription: string | null = null;
 
     const result = await this.prisma.$transaction(async (tx) => {
       const user = await tx.user.findUnique({
@@ -612,7 +697,9 @@ export class GameService {
         this.logger.warn(
           `handlePokerRollback: user_not_found player_id=${playerIdNumber}`,
         );
-        throw new NotFoundException('user_not_found');
+        errorCode = 'INVALID_PLAYER';
+        errorDescription = 'Player not found';
+        return null;
       }
 
       const existing = await (tx as any).gameTransaction.findFirst({
@@ -709,6 +796,18 @@ export class GameService {
         transactionId: internalId,
       };
     });
+
+    if (errorCode) {
+      return this.pokerError(
+        errorCode,
+        errorDescription ?? 'Internal server error',
+      );
+    }
+
+    if (!result) {
+      this.logger.error('handlePokerRollback: internal_error_null_result');
+      return this.pokerError('INTERNAL_ERROR', 'Internal server error');
+    }
 
     const rollbackIds = Array.isArray(body?.rollback_transactions)
       ? body.rollback_transactions.map((item: any) => item.transaction_id)
