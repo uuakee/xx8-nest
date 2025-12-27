@@ -787,20 +787,17 @@ export class GameService {
         : Number((user.balance as unknown as Prisma.Decimal).toString());
 
     const url = `${baseUrl}/games/game_launch`;
-    this.logger.log(
-      `launchPokerGame: calling game_launch url=${url} providerGameId=${providerGameId} userId=${user.id} userBalance=${userBalance}`,
-    );
     const searchParams = new URLSearchParams({
-      agent_token: config.agent_token,
       agent_code: config.agent_code,
-      user_id: String(user.id),
-      provider_code: 'PGSOFT',
       game_id: providerGameId,
-      user_balance: userBalance.toString(),
+      type: 'CHARGED',
       currency: 'BRL',
       lang: 'pt',
-      type: 'SLOT',
+      user_id: String(user.id),
     });
+    this.logger.log(
+      `launchPokerGame: calling game_launch url=${url} providerGameId=${providerGameId} userId=${user.id} params=${searchParams.toString()}`,
+    );
 
     const launchResponse = await fetch(`${url}?${searchParams.toString()}`, {
       method: 'GET',
