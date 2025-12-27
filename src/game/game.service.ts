@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -10,9 +11,12 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class GameService {
+  private readonly logger = new Logger(GameService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   private async getUser(userId: number) {
+    this.logger.log(`getUser: userId=${userId}`);
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
@@ -24,11 +28,18 @@ export class GameService {
       },
     });
     if (!user) {
+      this.logger.warn(`getUser: user_not_found id=${userId}`);
       throw new UnauthorizedException('user_not_found');
     }
     if (!user.status || user.banned) {
+      this.logger.warn(
+        `getUser: user_inactive id=${userId} status=${user.status} banned=${user.banned}`,
+      );
       throw new UnauthorizedException('user_inactive');
     }
+    this.logger.log(
+      `getUser: ok id=${user.id} balance=${this.getDecimalNumber(user.balance)}`,
+    );
     return user;
   }
 
@@ -42,6 +53,7 @@ export class GameService {
     distribution: string;
     is_active: boolean;
   }> {
+    this.logger.log(`getGameForLaunch: identifier=${identifier}`);
     const game = await this.prisma.game.findFirst({
       where: {
         is_active: true,
@@ -60,11 +72,18 @@ export class GameService {
       },
     });
     if (!game) {
+      this.logger.warn(`getGameForLaunch: game_not_found identifier=${identifier}`);
       throw new NotFoundException('game_not_found');
     }
     if (!game.distribution) {
+      this.logger.warn(
+        `getGameForLaunch: game_without_distribution id=${game.id} code=${game.game_code}`,
+      );
       throw new BadRequestException('game_without_distribution');
     }
+    this.logger.log(
+      `getGameForLaunch: ok id=${game.id} code=${game.game_code} distribution=${game.distribution}`,
+    );
     return game as {
       id: number;
       name: string;
@@ -80,18 +99,31 @@ export class GameService {
     dto: GameLaunchDto,
     apiBaseUrl: string | undefined,
   ) {
+    this.logger.log(
+      `launchGameForUser: userId=${userId} identifier=${dto.game_id}`,
+    );
     const game = await this.getGameForLaunch(dto.game_id);
 
     if (game.distribution === 'poker-games') {
+      this.logger.log(
+        `launchGameForUser: routing to PokerGames userId=${userId} gameId=${game.id}`,
+      );
       return this.launchPokerGame(userId, game, apiBaseUrl);
     }
 
+    this.logger.warn(
+      `launchGameForUser: unsupported_distribution distribution=${game.distribution} gameId=${game.id}`,
+    );
     throw new BadRequestException('unsupported_distribution');
   }
 
   async handlePokerWebhook(body: any) {
     const action = body?.action;
+    this.logger.log(
+      `handlePokerWebhook: received action=${action} player_id=${body?.player_id} session_id=${body?.session_id}`,
+    );
     if (!action || typeof action !== 'string') {
+      this.logger.warn('handlePokerWebhook: invalid_action');
       throw new BadRequestException('invalid_action');
     }
     if (action === 'balance') {
@@ -109,6 +141,7 @@ export class GameService {
     if (action === 'rollback') {
       return this.handlePokerRollback(body);
     }
+    this.logger.warn(`handlePokerWebhook: unsupported_action=${action}`);
     throw new BadRequestException('unsupported_action');
   }
 
@@ -119,6 +152,7 @@ export class GameService {
   }
 
   private async getUserByPlayerId(playerId: number) {
+    this.logger.log(`getUserByPlayerId: player_id=${playerId}`);
     const user = await this.prisma.user.findUnique({
       where: { id: playerId },
       select: {
@@ -127,14 +161,21 @@ export class GameService {
       },
     });
     if (!user) {
+      this.logger.warn(`getUserByPlayerId: user_not_found player_id=${playerId}`);
       throw new NotFoundException('user_not_found');
     }
+    this.logger.log(
+      `getUserByPlayerId: ok userId=${user.id} balance=${this.getDecimalNumber(user.balance)}`,
+    );
     return user;
   }
 
   private async handlePokerBalance(body: any) {
     const playerIdNumber = Number(body?.player_id);
     if (!Number.isFinite(playerIdNumber)) {
+      this.logger.warn(
+        `handlePokerBalance: invalid_player_id value=${body?.player_id}`,
+      );
       throw new BadRequestException('invalid_player_id');
     }
     const user = await this.getUserByPlayerId(playerIdNumber);
@@ -154,6 +195,9 @@ export class GameService {
         raw_request: body,
       },
     });
+    this.logger.log(
+      `handlePokerBalance: ok player_id=${playerIdNumber} userId=${user.id} balance=${balanceNumber}`,
+    );
     return {
       balance: balanceNumber,
     };
@@ -167,12 +211,21 @@ export class GameService {
         ? body.transaction_id
         : String(body?.transaction_id ?? '');
     if (!Number.isFinite(playerIdNumber)) {
+      this.logger.warn(
+        `handlePokerBet: invalid_player_id value=${body?.player_id}`,
+      );
       throw new BadRequestException('invalid_player_id');
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      this.logger.warn(
+        `handlePokerBet: invalid_amount player_id=${playerIdNumber} amount=${body?.amount}`,
+      );
       throw new BadRequestException('invalid_amount');
     }
     if (!providerTransactionId) {
+      this.logger.warn(
+        `handlePokerBet: invalid_transaction_id player_id=${playerIdNumber}`,
+      );
       throw new BadRequestException('invalid_transaction_id');
     }
     const currency = body?.currency ?? 'BRL';
@@ -189,6 +242,9 @@ export class GameService {
         },
       });
       if (!user) {
+        this.logger.warn(
+          `handlePokerBet: user_not_found player_id=${playerIdNumber}`,
+        );
         throw new NotFoundException('user_not_found');
       }
 
@@ -202,6 +258,9 @@ export class GameService {
       const currentBalance = this.getDecimalNumber(user.balance);
 
       if (existing && existing.internal_transaction_id) {
+        this.logger.log(
+          `handlePokerBet: duplicate provider_tx=${providerTransactionId} internal_tx=${existing.internal_transaction_id} player_id=${playerIdNumber}`,
+        );
         return {
           balance: currentBalance,
           transactionId: existing.internal_transaction_id,
@@ -209,6 +268,9 @@ export class GameService {
       }
 
       if (currentBalance < amountNumber) {
+        this.logger.warn(
+          `handlePokerBet: insufficient_balance player_id=${playerIdNumber} balance=${currentBalance} amount=${amountNumber}`,
+        );
         throw new BadRequestException('insufficient_balance');
       }
 
@@ -253,6 +315,9 @@ export class GameService {
       };
     });
 
+    this.logger.log(
+      `handlePokerBet: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
+    );
     return {
       balance: result.balance,
       transaction_id: result.transactionId,
@@ -267,12 +332,21 @@ export class GameService {
         ? body.transaction_id
         : String(body?.transaction_id ?? '');
     if (!Number.isFinite(playerIdNumber)) {
+      this.logger.warn(
+        `handlePokerWin: invalid_player_id value=${body?.player_id}`,
+      );
       throw new BadRequestException('invalid_player_id');
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      this.logger.warn(
+        `handlePokerWin: invalid_amount player_id=${playerIdNumber} amount=${body?.amount}`,
+      );
       throw new BadRequestException('invalid_amount');
     }
     if (!providerTransactionId) {
+      this.logger.warn(
+        `handlePokerWin: invalid_transaction_id player_id=${playerIdNumber}`,
+      );
       throw new BadRequestException('invalid_transaction_id');
     }
     const currency = body?.currency ?? 'BRL';
@@ -289,6 +363,9 @@ export class GameService {
         },
       });
       if (!user) {
+        this.logger.warn(
+          `handlePokerWin: user_not_found player_id=${playerIdNumber}`,
+        );
         throw new NotFoundException('user_not_found');
       }
 
@@ -302,6 +379,9 @@ export class GameService {
       const currentBalance = this.getDecimalNumber(user.balance);
 
       if (existing && existing.internal_transaction_id) {
+        this.logger.log(
+          `handlePokerWin: duplicate provider_tx=${providerTransactionId} internal_tx=${existing.internal_transaction_id} player_id=${playerIdNumber}`,
+        );
         return {
           balance: currentBalance,
           transactionId: existing.internal_transaction_id,
@@ -349,6 +429,9 @@ export class GameService {
       };
     });
 
+    this.logger.log(
+      `handlePokerWin: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
+    );
     return {
       balance: result.balance,
       transaction_id: result.transactionId,
@@ -368,15 +451,27 @@ export class GameService {
         : String(body?.bet_transaction_id ?? '');
 
     if (!Number.isFinite(playerIdNumber)) {
+      this.logger.warn(
+        `handlePokerRefund: invalid_player_id value=${body?.player_id}`,
+      );
       throw new BadRequestException('invalid_player_id');
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      this.logger.warn(
+        `handlePokerRefund: invalid_amount player_id=${playerIdNumber} amount=${body?.amount}`,
+      );
       throw new BadRequestException('invalid_amount');
     }
     if (!providerTransactionId) {
+      this.logger.warn(
+        `handlePokerRefund: invalid_transaction_id player_id=${playerIdNumber}`,
+      );
       throw new BadRequestException('invalid_transaction_id');
     }
     if (!betProviderTransactionId) {
+      this.logger.warn(
+        `handlePokerRefund: invalid_bet_transaction_id player_id=${playerIdNumber}`,
+      );
       throw new BadRequestException('invalid_bet_transaction_id');
     }
 
@@ -394,6 +489,9 @@ export class GameService {
         },
       });
       if (!user) {
+        this.logger.warn(
+          `handlePokerRefund: user_not_found player_id=${playerIdNumber}`,
+        );
         throw new NotFoundException('user_not_found');
       }
 
@@ -407,6 +505,9 @@ export class GameService {
       const currentBalance = this.getDecimalNumber(user.balance);
 
       if (existing && existing.internal_transaction_id) {
+        this.logger.log(
+          `handlePokerRefund: duplicate provider_tx=${providerTransactionId} internal_tx=${existing.internal_transaction_id} player_id=${playerIdNumber}`,
+        );
         return {
           balance: currentBalance,
           transactionId: existing.internal_transaction_id,
@@ -467,6 +568,9 @@ export class GameService {
       };
     });
 
+    this.logger.log(
+      `handlePokerRefund: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
+    );
     return {
       balance: result.balance,
       transaction_id: result.transactionId,
@@ -480,9 +584,15 @@ export class GameService {
         ? body.transaction_id
         : String(body?.transaction_id ?? '');
     if (!Number.isFinite(playerIdNumber)) {
+      this.logger.warn(
+        `handlePokerRollback: invalid_player_id value=${body?.player_id}`,
+      );
       throw new BadRequestException('invalid_player_id');
     }
     if (!providerTransactionId) {
+      this.logger.warn(
+        `handlePokerRollback: invalid_transaction_id player_id=${playerIdNumber}`,
+      );
       throw new BadRequestException('invalid_transaction_id');
     }
 
@@ -499,6 +609,9 @@ export class GameService {
         },
       });
       if (!user) {
+        this.logger.warn(
+          `handlePokerRollback: user_not_found player_id=${playerIdNumber}`,
+        );
         throw new NotFoundException('user_not_found');
       }
 
@@ -512,6 +625,9 @@ export class GameService {
       const currentBalance = this.getDecimalNumber(user.balance);
 
       if (existing && existing.internal_transaction_id) {
+        this.logger.log(
+          `handlePokerRollback: duplicate provider_tx=${providerTransactionId} internal_tx=${existing.internal_transaction_id} player_id=${playerIdNumber}`,
+        );
         return {
           balance: currentBalance,
           transactionId: existing.internal_transaction_id,
@@ -598,6 +714,9 @@ export class GameService {
       ? body.rollback_transactions.map((item: any) => item.transaction_id)
       : [];
 
+    this.logger.log(
+      `handlePokerRollback: ok player_id=${playerIdNumber} balance=${result.balance} internal_tx=${result.transactionId} rollback_count=${rollbackIds.length}`,
+    );
     return {
       balance: result.balance,
       transaction_id: result.transactionId,
@@ -616,10 +735,14 @@ export class GameService {
     },
     apiBaseUrl: string | undefined,
   ) {
+    this.logger.log(
+      `launchPokerGame: userId=${userId} gameId=${game.id} code=${game.game_code}`,
+    );
     const config = await this.prisma.pokerProvider.findFirst({
       where: { active: true },
     });
     if (!config) {
+      this.logger.error('launchPokerGame: poker_provider_not_configured');
       throw new NotFoundException('poker_provider_not_configured');
     }
 
@@ -631,6 +754,7 @@ export class GameService {
     const encodedCredentials = Buffer.from(credentials, 'utf8').toString('base64');
     const authUrl = `${baseUrl}/auth/authentication`;
 
+    this.logger.log(`launchPokerGame: calling auth url=${authUrl}`);
     const authResponse = await fetch(authUrl, {
       method: 'POST',
       headers: {
@@ -639,6 +763,9 @@ export class GameService {
     });
 
     if (!authResponse.ok) {
+      this.logger.error(
+        `launchPokerGame: poker_auth_failed status=${authResponse.status}`,
+      );
       throw new BadRequestException('poker_auth_failed');
     }
 
@@ -647,6 +774,7 @@ export class GameService {
     };
 
     if (!authData.access_token) {
+      this.logger.error('launchPokerGame: poker_auth_invalid_response');
       throw new BadRequestException('poker_auth_invalid_response');
     }
 
@@ -659,6 +787,9 @@ export class GameService {
         : Number((user.balance as unknown as Prisma.Decimal).toString());
 
     const url = `${baseUrl}/games/game_launch`;
+    this.logger.log(
+      `launchPokerGame: calling game_launch url=${url} providerGameId=${providerGameId} userId=${user.id} userBalance=${userBalance}`,
+    );
     const searchParams = new URLSearchParams({
       agent_token: config.agent_token,
       agent_code: config.agent_code,
@@ -679,6 +810,9 @@ export class GameService {
     });
 
     if (!launchResponse.ok) {
+      this.logger.error(
+        `launchPokerGame: poker_launch_failed status=${launchResponse.status}`,
+      );
       throw new BadRequestException('poker_launch_failed');
     }
 
