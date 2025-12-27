@@ -33,17 +33,23 @@ export class GameService {
   }
 
   private async getGameForLaunch(
-    gameId: number,
+    identifier: string,
   ): Promise<{
     id: number;
     name: string;
     game_code: string;
-    game_id: number | null;
+    game_id: string | null;
     distribution: string;
     is_active: boolean;
   }> {
-    const game = await this.prisma.game.findUnique({
-      where: { id: gameId },
+    const game = await this.prisma.game.findFirst({
+      where: {
+        is_active: true,
+        OR: [
+          { game_id: identifier },
+          { game_code: identifier },
+        ],
+      },
       select: {
         id: true,
         name: true,
@@ -53,7 +59,7 @@ export class GameService {
         is_active: true,
       },
     });
-    if (!game || !game.is_active) {
+    if (!game) {
       throw new NotFoundException('game_not_found');
     }
     if (!game.distribution) {
@@ -63,7 +69,7 @@ export class GameService {
       id: number;
       name: string;
       game_code: string;
-      game_id: number | null;
+      game_id: string | null;
       distribution: string;
       is_active: boolean;
     };
@@ -89,7 +95,7 @@ export class GameService {
       id: number;
       name: string;
       game_code: string;
-      game_id: number | null;
+      game_id: string | null;
       distribution: string;
     },
     apiBaseUrl: string | undefined,
@@ -129,10 +135,7 @@ export class GameService {
     }
 
     const accessToken = authData.access_token;
-    const providerGameId =
-      game.game_id !== null && game.game_id !== undefined
-        ? String(game.game_id)
-        : game.game_code;
+    const providerGameId = game.game_id ?? game.game_code;
 
     const userBalance =
       typeof user.balance === 'number'

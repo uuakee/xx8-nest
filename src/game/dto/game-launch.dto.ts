@@ -1,8 +1,7 @@
-import { IsInt, IsPositive } from 'class-validator';
+import { IsString, Length } from 'class-validator';
 
 export class GameLaunchDto {
-  @IsInt()
-  @IsPositive()
-  game_id!: number;
+  @IsString()
+  @Length(1, 100)
+  game_id!: string;
 }
-

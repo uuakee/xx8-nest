@@ -155,7 +155,7 @@ model Game {
   
   name                  String
   game_code             String
-  game_id               Int?
+  game_id               String?
   image                 String?
   description           String?   @db.Text
 

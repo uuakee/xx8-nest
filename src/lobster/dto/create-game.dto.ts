@@ -20,8 +20,8 @@ export class CreateGameDto {
   game_code!: string;
 
   @IsOptional()
-  @IsInt()
-  game_id?: number;
+  @IsString()
+  game_id?: string;
 
   @IsOptional()
   @IsUrl()
