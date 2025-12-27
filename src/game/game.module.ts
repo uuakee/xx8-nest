@@ -8,5 +8,6 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [GameController],
   providers: [GameService, PrismaService],
+  exports: [GameService],
 })
 export class GameModule {}

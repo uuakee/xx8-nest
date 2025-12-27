@@ -1,12 +1,14 @@
 import { Body, Controller, Get, Post } from '@nestjs/common';
 import { AppService } from './app.service';
 import { PradaPaymentGatewayService } from './users/prada-payment.gateway';
+import { GameService } from './game/game.service';
 
 @Controller()
 export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly pradaGateway: PradaPaymentGatewayService,
+    private readonly gameService: GameService,
   ) {}
 
   @Get()
@@ -25,5 +27,10 @@ export class AppController {
     },
   ) {
     return this.pradaGateway.handleWebhook(body);
+  }
+
+  @Post('api/webhooks/pokers')
+  pokerWebhook(@Body() body: any) {
+    return this.gameService.handlePokerWebhook(body);
   }
 }

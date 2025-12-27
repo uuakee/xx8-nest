@@ -55,6 +55,7 @@ model User {
   level_promo_progresses       LevelPromoProgress[]
   inviter                      User?                @relation("UserInviter", fields: [invited_by_user_id], references: [id])
   invitees                     User[]               @relation("UserInviter")
+  game_transactions            GameTransaction[]
 
   @@index([status, banned])
   @@index([created_at])
@@ -177,6 +178,29 @@ model Game {
   updated_at            DateTime  @updatedAt
 
   @@map("games")
+}
+
+model GameTransaction {
+  id                       Int      @id @default(autoincrement())
+  user_id                  Int
+  action                   String
+  provider                 String
+  player_id                Int
+  session_id               String?
+  provider_transaction_id  String?
+  internal_transaction_id  String?
+  game_uuid                String?
+  round_id                 String?
+  amount                   Decimal? @db.Decimal(10, 2)
+  currency                 String?  @default("BRL")
+  raw_request              Json?
+  created_at               DateTime @default(now())
+  user                     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([player_id, created_at])
+  @@index([provider_transaction_id])
+  @@map("game_transactions")
 }
 
 enum GameType {
@@ -416,4 +440,3 @@ model PokerProvider {
 
   @@map("poker_providers")
 }
-
