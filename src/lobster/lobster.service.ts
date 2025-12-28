@@ -30,6 +30,8 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
+import { CreateVipLevelDto } from './dto/create-vip-level.dto';
+import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
 
 @Injectable()
 export class LobsterService {
@@ -572,6 +574,50 @@ export class LobsterService {
         total_pages: Math.ceil(total / pageSize),
       },
     };
+  }
+
+  async listVipLevels() {
+    return this.prisma.vipLevel.findMany({
+      orderBy: { id_vip: 'asc' },
+    });
+  }
+
+  async getVipLevelById(id: number) {
+    const level = await this.prisma.vipLevel.findUnique({
+      where: { id },
+    });
+    if (!level) {
+      throw new NotFoundException('vip_level_not_found');
+    }
+    return level;
+  }
+
+  async createVipLevel(dto: CreateVipLevelDto) {
+    return this.prisma.vipLevel.create({
+      data: {
+        id_vip: dto.id_vip,
+        goal: dto.goal,
+        bonus: dto.bonus,
+        weekly_bonus: dto.weekly_bonus,
+        monthly_bonus: dto.monthly_bonus,
+      },
+    });
+  }
+
+  async updateVipLevel(id: number, dto: UpdateVipLevelDto) {
+    await this.getVipLevelById(id);
+    return this.prisma.vipLevel.update({
+      where: { id },
+      data: {
+        ...dto,
+      },
+    });
+  }
+
+  async deleteVipLevel(id: number) {
+    await this.getVipLevelById(id);
+    await this.prisma.vipLevel.delete({ where: { id } });
+    return { deleted: true };
   }
 
   private async ensureCategoryExists(id: number) {

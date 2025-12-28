@@ -35,6 +35,8 @@ import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
+import { CreateVipLevelDto } from './dto/create-vip-level.dto';
+import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
 
 @Controller('lobster')
 export class LobsterController {
@@ -346,5 +348,38 @@ export class LobsterController {
   @Get('deposits')
   adminListDeposits(@Query() query: AdminListDepositsDto) {
     return this.lobsterService.adminListDeposits(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('vip-levels')
+  listVipLevels() {
+    return this.lobsterService.listVipLevels();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('vip-levels/:id')
+  getVipLevelById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getVipLevelById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('vip-levels')
+  createVipLevel(@Body() dto: CreateVipLevelDto) {
+    return this.lobsterService.createVipLevel(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('vip-levels/:id')
+  updateVipLevel(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateVipLevelDto,
+  ) {
+    return this.lobsterService.updateVipLevel(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('vip-levels/:id')
+  deleteVipLevel(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteVipLevel(id);
   }
 }
