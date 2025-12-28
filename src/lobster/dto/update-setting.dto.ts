@@ -50,4 +50,3 @@ export class UpdateSettingDto {
   @IsNumber()
   max_withdrawal?: number;
 }
-

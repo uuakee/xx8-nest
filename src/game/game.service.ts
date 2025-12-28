@@ -43,9 +43,7 @@ export class GameService {
     return user;
   }
 
-  private async getGameForLaunch(
-    identifier: string,
-  ): Promise<{
+  private async getGameForLaunch(identifier: string): Promise<{
     id: number;
     name: string;
     game_code: string;
@@ -57,10 +55,7 @@ export class GameService {
     const game = await this.prisma.game.findFirst({
       where: {
         is_active: true,
-        OR: [
-          { game_id: identifier },
-          { game_code: identifier },
-        ],
+        OR: [{ game_id: identifier }, { game_code: identifier }],
       },
       select: {
         id: true,
@@ -72,7 +67,9 @@ export class GameService {
       },
     });
     if (!game) {
-      this.logger.warn(`getGameForLaunch: game_not_found identifier=${identifier}`);
+      this.logger.warn(
+        `getGameForLaunch: game_not_found identifier=${identifier}`,
+      );
       throw new NotFoundException('game_not_found');
     }
     if (!game.distribution) {
@@ -131,10 +128,7 @@ export class GameService {
     );
     if (!action || typeof action !== 'string') {
       this.logger.warn('handlePokerWebhook: invalid_action');
-      return this.pokerError(
-        'INVALID_ACTION',
-        'Unsupported or missing action',
-      );
+      return this.pokerError('INVALID_ACTION', 'Unsupported or missing action');
     }
     if (action === 'balance') {
       return this.handlePokerBalance(body);
@@ -156,9 +150,7 @@ export class GameService {
   }
 
   private getDecimalNumber(value: number | Prisma.Decimal) {
-    return typeof value === 'number'
-      ? value
-      : Number((value as Prisma.Decimal).toString());
+    return typeof value === 'number' ? value : Number(value.toString());
   }
 
   private pokerError(code: string, description: string) {
@@ -178,7 +170,9 @@ export class GameService {
       },
     });
     if (!user) {
-      this.logger.warn(`getUserByPlayerId: user_not_found player_id=${playerId}`);
+      this.logger.warn(
+        `getUserByPlayerId: user_not_found player_id=${playerId}`,
+      );
       throw new NotFoundException('user_not_found');
     }
     this.logger.log(
@@ -366,6 +360,8 @@ export class GameService {
       this.logger.error('handlePokerBet: internal_error_null_result');
       return this.pokerError('INTERNAL_ERROR', 'Internal server error');
     }
+
+    await this.checkAndApplyVipUpgrade(playerIdNumber);
 
     this.logger.log(
       `handlePokerBet: ok player_id=${playerIdNumber} amount=${amountNumber} balance=${result.balance} internal_tx=${result.transactionId}`,
@@ -735,8 +731,7 @@ export class GameService {
           typeof item?.transaction_id === 'string'
             ? item.transaction_id
             : String(item?.transaction_id ?? '');
-        const itemAction =
-          typeof item?.action === 'string' ? item.action : '';
+        const itemAction = typeof item?.action === 'string' ? item.action : '';
 
         if (!itemTransactionId || !itemAction) {
           continue;
@@ -857,7 +852,9 @@ export class GameService {
     const baseUrl = (apiBaseUrl ?? config.base_url).replace(/\/+$/, '');
 
     const credentials = `${config.agent_token}:${config.agent_secret}`;
-    const encodedCredentials = Buffer.from(credentials, 'utf8').toString('base64');
+    const encodedCredentials = Buffer.from(credentials, 'utf8').toString(
+      'base64',
+    );
     const authUrl = `${baseUrl}/auth/authentication`;
 
     this.logger.log(`launchPokerGame: calling auth url=${authUrl}`);
@@ -1048,5 +1045,91 @@ export class GameService {
     return {
       url: launchUrl,
     };
+  }
+
+  private async checkAndApplyVipUpgrade(userId: number) {
+    await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          vip: true,
+          vip_balance: true,
+          status: true,
+          banned: true,
+        },
+      });
+
+      if (!user || !user.status || user.banned) {
+        return;
+      }
+
+      const levels = await tx.vipLevel.findMany({
+        orderBy: { id_vip: 'asc' },
+      });
+
+      if (!levels.length) {
+        return;
+      }
+
+      const agg = await (tx as any).gameTransaction.aggregate({
+        _sum: {
+          amount: true,
+        },
+        where: {
+          user_id: user.id,
+          action: 'bet',
+        },
+      });
+
+      const totalVolume =
+        agg && agg._sum && agg._sum.amount
+          ? this.getDecimalNumber(agg._sum.amount as Prisma.Decimal)
+          : 0;
+
+      const currentVip = user.vip ?? 0;
+      let targetVip = currentVip;
+
+      const levelsByIdVip = new Map<number, (typeof levels)[number]>();
+      for (const level of levels) {
+        levelsByIdVip.set(level.id_vip, level);
+        const goalNumber = this.getDecimalNumber(level.goal);
+        if (totalVolume >= goalNumber && level.id_vip > targetVip) {
+          targetVip = level.id_vip;
+        }
+      }
+
+      if (targetVip <= currentVip) {
+        return;
+      }
+
+      let totalBonus = new Prisma.Decimal(0);
+
+      for (let nextVip = currentVip + 1; nextVip <= targetVip; nextVip++) {
+        const level = levelsByIdVip.get(nextVip);
+        if (!level) {
+          continue;
+        }
+        const bonusDecimal = level.bonus;
+        totalBonus = totalBonus.add(bonusDecimal);
+        await tx.vipHistory.create({
+          data: {
+            user_id: user.id,
+            vip_level_id: level.id,
+            goal: level.goal,
+            bonus: bonusDecimal,
+            kind: 'upgrade',
+          },
+        });
+      }
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          vip: targetVip,
+          vip_balance: { increment: totalBonus },
+        },
+      });
+    });
   }
 }

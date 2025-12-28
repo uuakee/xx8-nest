@@ -1,4 +1,11 @@
-import { IsBoolean, IsInt, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MinLength,
+} from 'class-validator';
 
 export class UpdatePopupBannerDto {
   @IsOptional()
@@ -22,4 +29,3 @@ export class UpdatePopupBannerDto {
   @IsInt()
   sort_order?: number;
 }
-

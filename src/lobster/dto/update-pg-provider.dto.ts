@@ -21,4 +21,3 @@ export class UpdatePgProviderDto {
   @IsBoolean()
   active?: boolean;
 }
-

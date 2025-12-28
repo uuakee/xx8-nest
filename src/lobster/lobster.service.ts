@@ -32,6 +32,7 @@ import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
 import { CreateVipLevelDto } from './dto/create-vip-level.dto';
 import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
+import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
 
 @Injectable()
 export class LobsterService {
@@ -576,6 +577,97 @@ export class LobsterService {
     };
   }
 
+  async adminListVipHistories(filters: AdminListVipHistoriesDto) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.VipHistoryWhereInput = {};
+
+    if (filters.kind) {
+      where.kind = filters.kind;
+    }
+
+    if (filters.created_from || filters.created_to) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (filters.created_from) {
+        createdAtFilter.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        createdAtFilter.lte = new Date(filters.created_to);
+      }
+      where.created_at = createdAtFilter;
+    }
+
+    const userConditions: Prisma.UserWhereInput = {};
+
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
+    }
+
+    if (filters.vip_level) {
+      where.vip_level = {
+        is: {
+          id_vip: filters.vip_level,
+        },
+      };
+    }
+
+    const allowedOrderFields: (keyof Prisma.VipHistoryOrderByWithRelationInput)[] =
+      ['created_at', 'bonus', 'goal', 'id'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.VipHistoryOrderByWithRelationInput) ??
+      'created_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'created_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.VipHistoryOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.vipHistory.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+          vip_level: true,
+        },
+      }),
+      this.prisma.vipHistory.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
   async listVipLevels() {
     return this.prisma.vipLevel.findMany({
       orderBy: { id_vip: 'asc' },
@@ -618,6 +710,186 @@ export class LobsterService {
     await this.getVipLevelById(id);
     await this.prisma.vipLevel.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  async runVipWeeklyBonusJob() {
+    const now = new Date();
+    const from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        vip: { gt: 0 },
+        status: true,
+        banned: false,
+      },
+      select: {
+        id: true,
+        vip: true,
+      },
+    });
+
+    if (!users.length) {
+      return {
+        processed_users: 0,
+        created_histories: 0,
+      };
+    }
+
+    const levels = await this.prisma.vipLevel.findMany();
+
+    const levelsByIdVip = new Map<number, (typeof levels)[number]>();
+    for (const level of levels) {
+      levelsByIdVip.set(level.id_vip, level);
+    }
+
+    let createdHistories = 0;
+
+    for (const user of users) {
+      const currentVip = user.vip ?? 0;
+      const level = levelsByIdVip.get(currentVip);
+      if (!level) {
+        continue;
+      }
+
+      const weeklyBonusDecimal = level.weekly_bonus;
+      const weeklyBonusNumber = Number(weeklyBonusDecimal.toString());
+      if (!Number.isFinite(weeklyBonusNumber) || weeklyBonusNumber <= 0) {
+        continue;
+      }
+
+      const alreadyReceived = await this.prisma.vipHistory.findFirst({
+        where: {
+          user_id: user.id,
+          vip_level_id: level.id,
+          kind: 'weekly',
+          created_at: {
+            gte: from,
+          },
+        },
+      });
+
+      if (alreadyReceived) {
+        continue;
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.vipHistory.create({
+          data: {
+            user_id: user.id,
+            vip_level_id: level.id,
+            goal: level.goal,
+            bonus: weeklyBonusDecimal,
+            kind: 'weekly',
+          },
+        });
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            vip_balance: {
+              increment: weeklyBonusDecimal,
+            },
+          },
+        });
+      });
+
+      createdHistories += 1;
+    }
+
+    return {
+      processed_users: users.length,
+      created_histories: createdHistories,
+    };
+  }
+
+  async runVipMonthlyBonusJob() {
+    const now = new Date();
+    const from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    const users = await this.prisma.user.findMany({
+      where: {
+        vip: { gt: 0 },
+        status: true,
+        banned: false,
+      },
+      select: {
+        id: true,
+        vip: true,
+      },
+    });
+
+    if (!users.length) {
+      return {
+        processed_users: 0,
+        created_histories: 0,
+      };
+    }
+
+    const levels = await this.prisma.vipLevel.findMany();
+
+    const levelsByIdVip = new Map<number, (typeof levels)[number]>();
+    for (const level of levels) {
+      levelsByIdVip.set(level.id_vip, level);
+    }
+
+    let createdHistories = 0;
+
+    for (const user of users) {
+      const currentVip = user.vip ?? 0;
+      const level = levelsByIdVip.get(currentVip);
+      if (!level) {
+        continue;
+      }
+
+      const monthlyBonusDecimal = level.monthly_bonus;
+      const monthlyBonusNumber = Number(monthlyBonusDecimal.toString());
+      if (!Number.isFinite(monthlyBonusNumber) || monthlyBonusNumber <= 0) {
+        continue;
+      }
+
+      const alreadyReceived = await this.prisma.vipHistory.findFirst({
+        where: {
+          user_id: user.id,
+          vip_level_id: level.id,
+          kind: 'monthly',
+          created_at: {
+            gte: from,
+          },
+        },
+      });
+
+      if (alreadyReceived) {
+        continue;
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.vipHistory.create({
+          data: {
+            user_id: user.id,
+            vip_level_id: level.id,
+            goal: level.goal,
+            bonus: monthlyBonusDecimal,
+            kind: 'monthly',
+          },
+        });
+
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            vip_balance: {
+              increment: monthlyBonusDecimal,
+            },
+          },
+        });
+      });
+
+      createdHistories += 1;
+    }
+
+    return {
+      processed_users: users.length,
+      created_histories: createdHistories,
+    };
   }
 
   private async ensureCategoryExists(id: number) {

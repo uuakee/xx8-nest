@@ -22,4 +22,3 @@ export class GameController {
     return this.gameService.launchGameForUser(u.sub, dto, undefined);
   }
 }
-

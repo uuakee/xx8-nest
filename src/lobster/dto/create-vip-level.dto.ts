@@ -21,4 +21,3 @@ export class CreateVipLevelDto {
   @Min(0)
   monthly_bonus!: number;
 }
-

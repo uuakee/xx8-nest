@@ -40,9 +40,7 @@ export class UsersService {
     const allowedHours = [3, 12, 24, 48, 168];
     const effectiveHours = allowedHours.includes(hours) ? hours : 3;
     const now = new Date();
-    const from = new Date(
-      now.getTime() - effectiveHours * 60 * 60 * 1000,
-    );
+    const from = new Date(now.getTime() - effectiveHours * 60 * 60 * 1000);
 
     const transactions = await (this.prisma as any).gameTransaction.findMany({
       where: {
@@ -112,9 +110,7 @@ export class UsersService {
 
     const uuids = Array.from(
       new Set(
-        aggregatedGames
-          .map((g) => g.game_uuid)
-          .filter((v): v is string => !!v),
+        aggregatedGames.map((g) => g.game_uuid).filter((v): v is string => !!v),
       ),
     );
 
@@ -129,10 +125,7 @@ export class UsersService {
     if (uuids.length > 0) {
       const gameRows = await this.prisma.game.findMany({
         where: {
-          OR: [
-            { game_id: { in: uuids } },
-            { game_code: { in: uuids } },
-          ],
+          OR: [{ game_id: { in: uuids } }, { game_code: { in: uuids } }],
         },
         select: {
           name: true,

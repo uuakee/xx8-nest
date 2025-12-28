@@ -37,6 +37,7 @@ import { UpdatePromotionDto } from './dto/update-promotion.dto';
 import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
 import { CreateVipLevelDto } from './dto/create-vip-level.dto';
 import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
+import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
 
 @Controller('lobster')
 export class LobsterController {
@@ -351,6 +352,12 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Get('vip-histories')
+  adminListVipHistories(@Query() query: AdminListVipHistoriesDto) {
+    return this.lobsterService.adminListVipHistories(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Get('vip-levels')
   listVipLevels() {
     return this.lobsterService.listVipLevels();
@@ -381,5 +388,17 @@ export class LobsterController {
   @Delete('vip-levels/:id')
   deleteVipLevel(@Param('id', ParseIntPipe) id: number) {
     return this.lobsterService.deleteVipLevel(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('vip-bonuses/weekly')
+  runVipWeeklyBonusJob() {
+    return this.lobsterService.runVipWeeklyBonusJob();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('vip-bonuses/monthly')
+  runVipMonthlyBonusJob() {
+    return this.lobsterService.runVipMonthlyBonusJob();
   }
 }

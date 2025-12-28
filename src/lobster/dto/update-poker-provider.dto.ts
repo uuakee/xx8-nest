@@ -21,4 +21,3 @@ export class UpdatePokerProviderDto {
   @IsBoolean()
   active?: boolean;
 }
-

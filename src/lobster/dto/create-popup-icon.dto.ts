@@ -1,4 +1,10 @@
-import { IsBoolean, IsOptional, IsString, IsUrl, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsOptional,
+  IsString,
+  IsUrl,
+  MinLength,
+} from 'class-validator';
 
 export class CreatePopupIconDto {
   @IsString()
@@ -19,4 +25,3 @@ export class CreatePopupIconDto {
   @IsString()
   direction?: string;
 }
-
