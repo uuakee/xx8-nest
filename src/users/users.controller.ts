@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+  ParseIntPipe,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { CreateDepositDto } from './dto/create-deposit.dto';
@@ -27,5 +36,15 @@ export class UsersController {
   ) {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.createDeposit(u.sub, dto.amount);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('game-history')
+  gameHistory(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Query('hours', ParseIntPipe) hours: number,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getGameHistory(u.sub, hours);
   }
 }
