@@ -86,6 +86,24 @@ export class AdminUpdateUserDto {
   min_deposit_for_cpa?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  balance?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  affiliate_balance?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  vip_balance?: number;
+
+  @IsOptional()
   @IsString()
   @MinLength(6)
   new_password?: string;

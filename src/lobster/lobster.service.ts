@@ -427,6 +427,15 @@ export class LobsterService {
     if (dto.min_deposit_for_cpa !== undefined) {
       data.min_deposit_for_cpa = dto.min_deposit_for_cpa;
     }
+    if (dto.balance !== undefined) {
+      data.balance = dto.balance;
+    }
+    if (dto.affiliate_balance !== undefined) {
+      data.affiliate_balance = dto.affiliate_balance;
+    }
+    if (dto.vip_balance !== undefined) {
+      data.vip_balance = dto.vip_balance;
+    }
 
     if (dto.new_password) {
       data.password = await hash(dto.new_password, 10);
