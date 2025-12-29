@@ -271,6 +271,16 @@ export class LobsterService {
           vip_balance: true,
           rollover_active: true,
           rollover_multiplier: true,
+          cpa_available: true,
+          cpa_level_1: true,
+          cpa_level_2: true,
+          cpa_level_3: true,
+          min_deposit_for_cpa: true,
+          revshare_fake: true,
+          revshare_level_1: true,
+          revshare_level_2: true,
+          revshare_level_3: true,
+          fake_revshare: true,
           blogger: true,
           banned: true,
           status: true,
@@ -308,6 +318,16 @@ export class LobsterService {
         invited_by_user_id: true,
         rollover_active: true,
         rollover_multiplier: true,
+        cpa_available: true,
+        min_deposit_for_cpa: true,
+        cpa_level_1: true,
+        cpa_level_2: true,
+        cpa_level_3: true,
+        revshare_fake: true,
+        revshare_level_1: true,
+        revshare_level_2: true,
+        revshare_level_3: true,
+        fake_revshare: true,
         blogger: true,
         banned: true,
         status: true,
@@ -317,11 +337,6 @@ export class LobsterService {
         jump_available: true,
         jump_limit: true,
         jump_invite_count: true,
-        cpa_available: true,
-        min_deposit_for_cpa: true,
-        cpa_level_1: true,
-        cpa_level_2: true,
-        cpa_level_3: true,
         vip_histories: {
           orderBy: { created_at: 'desc' },
         },
@@ -431,6 +446,21 @@ export class LobsterService {
     if (dto.min_deposit_for_cpa !== undefined) {
       data.min_deposit_for_cpa = dto.min_deposit_for_cpa;
     }
+    if (dto.revshare_fake !== undefined) {
+      data.revshare_fake = dto.revshare_fake;
+    }
+    if (dto.revshare_level_1 !== undefined) {
+      data.revshare_level_1 = dto.revshare_level_1;
+    }
+    if (dto.revshare_level_2 !== undefined) {
+      data.revshare_level_2 = dto.revshare_level_2;
+    }
+    if (dto.revshare_level_3 !== undefined) {
+      data.revshare_level_3 = dto.revshare_level_3;
+    }
+    if (dto.fake_revshare !== undefined) {
+      data.fake_revshare = dto.fake_revshare;
+    }
     if (dto.balance !== undefined) {
       data.balance = dto.balance;
     }
@@ -469,6 +499,16 @@ export class LobsterService {
         vip_balance: true,
         rollover_active: true,
         rollover_multiplier: true,
+        cpa_available: true,
+        min_deposit_for_cpa: true,
+        cpa_level_1: true,
+        cpa_level_2: true,
+        cpa_level_3: true,
+        revshare_fake: true,
+        revshare_level_1: true,
+        revshare_level_2: true,
+        revshare_level_3: true,
+        fake_revshare: true,
         blogger: true,
         banned: true,
         status: true,

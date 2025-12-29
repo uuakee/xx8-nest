@@ -89,6 +89,35 @@ export class AdminUpdateUserDto {
   @Type(() => Number)
   @IsNumber()
   @Min(0)
+  revshare_fake?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  revshare_level_1?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  revshare_level_2?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  revshare_level_3?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  fake_revshare?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
   balance?: number;
 
   @IsOptional()
