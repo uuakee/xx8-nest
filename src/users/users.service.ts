@@ -69,6 +69,8 @@ export class UsersService {
           banned: true,
           phone: true,
           document: true,
+          rollover_active: true,
+          rollover_multiplier: true,
         },
       });
 
@@ -114,7 +116,18 @@ export class UsersService {
         throw new BadRequestException('no_deposit_for_withdrawal');
       }
 
-      const rolloverRequired = this.getDecimalNumber(lastDeposit.amount);
+      const baseRolloverRequired = this.getDecimalNumber(lastDeposit.amount);
+
+      const rawMultiplier = user.rollover_active
+        ? this.getDecimalNumber(
+            user.rollover_multiplier as unknown as Prisma.Decimal,
+          )
+        : 1;
+
+      const effectiveMultiplier =
+        rawMultiplier && rawMultiplier > 0 ? rawMultiplier : 1;
+
+      const rolloverRequired = baseRolloverRequired * effectiveMultiplier;
 
       const rolloverAgg = await (tx as any).gameTransaction.aggregate({
         _sum: {

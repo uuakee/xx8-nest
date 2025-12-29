@@ -128,6 +128,10 @@ export class AuthService {
         }
       }
 
+      const defaultAffiliate = await tx.defaultAffiliateBonus.findUnique({
+        where: { id: 1 },
+      });
+
       return tx.user.create({
         data: {
           pid,
@@ -136,6 +140,15 @@ export class AuthService {
           password: passwordHash,
           affiliate_code: affiliateCode,
           invited_by_user_id: invitedByUserId,
+          min_deposit_for_cpa: defaultAffiliate?.min_deposit_for_cpa,
+          cpa_level_1: defaultAffiliate?.cpa_level_1,
+          cpa_level_2: defaultAffiliate?.cpa_level_2,
+          cpa_level_3: defaultAffiliate?.cpa_level_3,
+          revshare_fake: defaultAffiliate?.revshare_fake,
+          revshare_level_1: defaultAffiliate?.revshare_level_1,
+          revshare_level_2: defaultAffiliate?.revshare_level_2,
+          revshare_level_3: defaultAffiliate?.revshare_level_3,
+          fake_revshare: defaultAffiliate?.fake_revshare,
         },
       });
     });
