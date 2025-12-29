@@ -95,4 +95,3 @@ export class AdminUpdateUserDto {
   @MinLength(4)
   new_withdrawal_password?: string;
 }
-

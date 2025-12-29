@@ -298,8 +298,6 @@ export class GameService {
         select: {
           id: true,
           balance: true,
-          affiliate_balance: true,
-          vip_balance: true,
         },
       });
 
@@ -311,15 +309,10 @@ export class GameService {
       }
 
       const mainBalance = this.getDecimalNumber(user.balance);
-      const affiliateBalance = this.getDecimalNumber(
-        user.affiliate_balance ?? 0,
-      );
-      const vipBalance = this.getDecimalNumber(user.vip_balance ?? 0);
-      const totalBalance = mainBalance + affiliateBalance + vipBalance;
 
-      if (totalBalance <= 0) {
+      if (mainBalance <= 0) {
         this.logger.log(
-          `handleCloneUserBalance: insufficient_funds userId=${user.id} totalBalance=${totalBalance}`,
+          `handleCloneUserBalance: insufficient_funds userId=${user.id} balance=${mainBalance}`,
         );
         return {
           status: 0,
@@ -329,12 +322,12 @@ export class GameService {
       }
 
       this.logger.log(
-        `handleCloneUserBalance: ok userId=${user.id} balance=${totalBalance}`,
+        `handleCloneUserBalance: ok userId=${user.id} balance=${mainBalance}`,
       );
 
       return {
         status: 1,
-        user_balance: totalBalance,
+        user_balance: mainBalance,
       };
     } catch (err) {
       this.logger.error(
@@ -360,7 +353,7 @@ export class GameService {
 
     const gameType = body?.game_type;
     const section =
-      gameType === 'live' ? body?.live ?? {} : body?.slot ?? {};
+      gameType === 'live' ? (body?.live ?? {}) : (body?.slot ?? {});
 
     const txnIdRaw = section?.txn_id;
     const gameCodeRaw = section?.game_code;
@@ -494,6 +487,8 @@ export class GameService {
         ? this.getDecimalNumber(updated.balance)
         : this.getDecimalNumber(user.balance);
     });
+
+    await this.checkAndApplyVipUpgrade(userId);
 
     this.logger.log(
       `handleCloneTransaction: ok userId=${userId} provider=${provider} txn_id=${txnId} bet=${betMoney} win=${winMoney} balance=${finalBalance}`,

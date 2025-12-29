@@ -9,4 +9,3 @@ export class RedeemVipBonusDto {
   @IsPositive()
   amount!: number;
 }
-

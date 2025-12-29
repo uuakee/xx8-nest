@@ -215,11 +215,7 @@ export class UsersService {
     for (const row of agg) {
       const sum = row._sum.bonus;
       const value =
-        typeof sum === 'number'
-          ? sum
-          : sum
-          ? Number(sum.toString())
-          : 0;
+        typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
       if (row.kind === 'upgrade') {
         upgradeTotal += value;
       } else if (row.kind === 'weekly') {
@@ -236,11 +232,7 @@ export class UsersService {
     for (const row of redemptions) {
       const sum = row._sum.amount;
       const value =
-        typeof sum === 'number'
-          ? sum
-          : sum
-          ? Number(sum.toString())
-          : 0;
+        typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
       if (row.bonus_type === 'upgrade') {
         upgradeRedeemed += value;
       } else if (row.bonus_type === 'weekly') {
@@ -302,8 +294,8 @@ export class UsersService {
         typeof bonusesSum === 'number'
           ? bonusesSum
           : bonusesSum
-          ? Number(bonusesSum.toString())
-          : 0;
+            ? Number(bonusesSum.toString())
+            : 0;
 
       if (totalGranted <= 0) {
         throw new BadRequestException('vip_bonus_not_available');
@@ -324,8 +316,8 @@ export class UsersService {
         typeof redeemedSum === 'number'
           ? redeemedSum
           : redeemedSum
-          ? Number(redeemedSum.toString())
-          : 0;
+            ? Number(redeemedSum.toString())
+            : 0;
 
       const available = totalGranted - totalRedeemed;
 

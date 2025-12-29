@@ -99,7 +99,7 @@ export class SyscomService {
     });
   }
 
-   listVipLevels() {
+  listVipLevels() {
     return this.prisma.vipLevel.findMany({
       orderBy: { id_vip: 'asc' },
       select: {

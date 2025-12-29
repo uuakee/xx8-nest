@@ -66,4 +66,3 @@ export class AdminListUsersDto {
   @IsIn(['asc', 'desc'])
   order_dir?: 'asc' | 'desc';
 }
-
