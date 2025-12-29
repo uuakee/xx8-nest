@@ -1274,7 +1274,7 @@ export class GameService {
       user_balance: userBalanceNumber,
     };
 
-    const url = `${baseUrl.replace(/\/+$/, '')}/game_launch`;
+    const url = `${baseUrl.replace(/\/+$/, '')}`;
 
     this.logger.log(
       `launchPpCloneGame: calling game_launch url=${url} userId=${user.id} game_code=${providerGameCode} payload=${JSON.stringify(

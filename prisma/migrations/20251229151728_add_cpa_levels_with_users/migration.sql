@@ -1,0 +1,6 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN     "cpa_available" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "cpa_level_1" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+ADD COLUMN     "cpa_level_2" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+ADD COLUMN     "cpa_level_3" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+ADD COLUMN     "min_deposit_for_cpa" DECIMAL(10,2) NOT NULL DEFAULT 0.00;
