@@ -108,6 +108,13 @@ export class GameService {
       return this.launchPokerGame(userId, game, apiBaseUrl);
     }
 
+    if (game.distribution === 'pp-clone') {
+      this.logger.log(
+        `launchGameForUser: routing to PpClone userId=${userId} gameId=${game.id}`,
+      );
+      return this.launchPpCloneGame(userId, game, apiBaseUrl);
+    }
+
     if (game.distribution === 'pg-clone') {
       this.logger.log(
         `launchGameForUser: routing to PgClone userId=${userId} gameId=${game.id}`,
@@ -149,6 +156,84 @@ export class GameService {
     return this.pokerError('INVALID_ACTION', 'Unsupported action');
   }
 
+  async handleCloneWebhook(body: any) {
+    const method = body?.method;
+    const agentCode = body?.agent_code;
+    const agentSecret = body?.agent_secret;
+
+    this.logger.log(
+      `handleCloneWebhook: received method=${method} agent_code=${agentCode} user_code=${body?.user_code}`,
+    );
+
+    if (!agentCode || !agentSecret) {
+      return { status: 0, message: 'invalid_agent' };
+    }
+
+    const [ppConfig, pgConfig] = await this.prisma.$transaction([
+      this.prisma.pPCloneProvider.findFirst({ where: { active: true } }),
+      this.prisma.pGCloneProvider.findFirst({ where: { active: true } }),
+    ]);
+
+    let provider: 'pp-clone' | 'pg-clone' | null = null;
+
+    if (
+      ppConfig &&
+      ppConfig.agent_code === agentCode &&
+      ppConfig.agent_secret === agentSecret
+    ) {
+      provider = 'pp-clone';
+    } else if (
+      pgConfig &&
+      pgConfig.agent_code === agentCode &&
+      pgConfig.agent_secret === agentSecret
+    ) {
+      provider = 'pg-clone';
+    }
+
+    if (!provider) {
+      this.logger.warn(
+        `handleCloneWebhook: unknown_agent agent_code=${agentCode}`,
+      );
+      return { status: 0, message: 'unknown_agent' };
+    }
+
+    if (!method || typeof method !== 'string') {
+      return { status: 0, message: 'invalid_method' };
+    }
+
+    if (method === 'user_balance') {
+      return this.handleCloneUserBalance(body);
+    }
+
+    if (provider === 'pp-clone') {
+      if (method === 'transaction') {
+        return this.handleCloneTransaction(body, provider);
+      }
+      this.logger.warn(
+        `handleCloneWebhook: unsupported_method_pp_clone=${method}`,
+      );
+      return { status: 0, message: 'unsupported_method' };
+    }
+
+    if (provider === 'pg-clone') {
+      if (method === 'money_callback' || method === 'transaction') {
+        return this.handleCloneTransaction(body, provider);
+      }
+      if (method === 'game_callback') {
+        return { status: 1 };
+      }
+      this.logger.warn(
+        `handleCloneWebhook: unsupported_method_pg_clone=${method}`,
+      );
+      return { status: 0, message: 'unsupported_method' };
+    }
+
+    this.logger.warn(
+      `handleCloneWebhook: unsupported_provider provider=${provider} method=${method}`,
+    );
+    return { status: 0, message: 'unsupported_provider' };
+  }
+
   private getDecimalNumber(value: number | Prisma.Decimal) {
     return typeof value === 'number' ? value : Number(value.toString());
   }
@@ -179,6 +264,206 @@ export class GameService {
       `getUserByPlayerId: ok userId=${user.id} balance=${this.getDecimalNumber(user.balance)}`,
     );
     return user;
+  }
+
+  private async handleCloneUserBalance(body: any) {
+    const userCode = body?.user_code;
+
+    const userId = Number(userCode);
+    if (!Number.isFinite(userId) || userId <= 0) {
+      this.logger.warn(
+        `handleCloneUserBalance: invalid_user_code user_code=${userCode}`,
+      );
+      return { status: 0, user_balance: 0 };
+    }
+
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          balance: true,
+        },
+      });
+
+      if (!user) {
+        this.logger.warn(
+          `handleCloneUserBalance: user_not_found user_code=${userCode}`,
+        );
+        return { status: 0, user_balance: 0 };
+      }
+
+      const balance = this.getDecimalNumber(user.balance);
+      this.logger.log(
+        `handleCloneUserBalance: ok userId=${user.id} balance=${balance}`,
+      );
+
+      return {
+        status: 1,
+        user_balance: balance,
+      };
+    } catch (err) {
+      this.logger.error(
+        `handleCloneUserBalance: internal_error user_code=${userCode} err=${(err as Error).message}`,
+      );
+      return { status: 0, user_balance: 0 };
+    }
+  }
+
+  private async handleCloneTransaction(
+    body: any,
+    provider: 'pp-clone' | 'pg-clone',
+  ) {
+    const userCode = body?.user_code;
+    const userId = Number(userCode);
+
+    if (!Number.isFinite(userId) || userId <= 0) {
+      this.logger.warn(
+        `handleCloneTransaction: invalid_user_code user_code=${userCode}`,
+      );
+      return { status: 0, user_balance: 0 };
+    }
+
+    const slot = body?.slot ?? {};
+    const txnIdRaw = slot?.txn_id;
+    const gameCodeRaw = slot?.game_code;
+    const betMoneyRaw = slot?.bet_money;
+    const winMoneyRaw = slot?.win_money;
+
+    const txnId =
+      typeof txnIdRaw === 'string' && txnIdRaw
+        ? txnIdRaw
+        : String(txnIdRaw ?? '');
+    const gameCode =
+      typeof gameCodeRaw === 'string' && gameCodeRaw
+        ? gameCodeRaw
+        : String(gameCodeRaw ?? '');
+
+    const betMoney =
+      typeof betMoneyRaw === 'number'
+        ? betMoneyRaw
+        : Number(betMoneyRaw ?? 0) || 0;
+    const winMoney =
+      typeof winMoneyRaw === 'number'
+        ? winMoneyRaw
+        : Number(winMoneyRaw ?? 0) || 0;
+
+    if (!txnId) {
+      this.logger.warn('handleCloneTransaction: missing_txn_id');
+      return { status: 0, user_balance: 0 };
+    }
+
+    let finalBalance = 0;
+
+    await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          balance: true,
+        },
+      });
+
+      if (!user) {
+        this.logger.warn(
+          `handleCloneTransaction: user_not_found user_code=${userCode}`,
+        );
+        throw new Error('user_not_found');
+      }
+
+      const betTxId = `${txnId}-BET`;
+      const winTxId = `${txnId}-WIN`;
+
+      if (betMoney > 0) {
+        const existingBet = await (tx as any).gameTransaction.findFirst({
+          where: {
+            provider,
+            action: 'bet',
+            provider_transaction_id: betTxId,
+          },
+        });
+
+        if (!existingBet) {
+          const betDecimal = new Prisma.Decimal(betMoney);
+          await tx.user.update({
+            where: { id: user.id },
+            data: {
+              balance: {
+                decrement: betDecimal,
+              },
+            },
+          });
+
+          await (tx as any).gameTransaction.create({
+            data: {
+              user_id: user.id,
+              action: 'bet',
+              provider,
+              provider_transaction_id: betTxId,
+              game_uuid: gameCode || null,
+              amount: betDecimal,
+              currency: 'BRL',
+              raw_request: body,
+            },
+          });
+        }
+      }
+
+      if (winMoney > 0) {
+        const existingWin = await (tx as any).gameTransaction.findFirst({
+          where: {
+            provider,
+            action: 'win',
+            provider_transaction_id: winTxId,
+          },
+        });
+
+        if (!existingWin) {
+          const winDecimal = new Prisma.Decimal(winMoney);
+          await tx.user.update({
+            where: { id: user.id },
+            data: {
+              balance: {
+                increment: winDecimal,
+              },
+            },
+          });
+
+          await (tx as any).gameTransaction.create({
+            data: {
+              user_id: user.id,
+              action: 'win',
+              provider,
+              provider_transaction_id: winTxId,
+              game_uuid: gameCode || null,
+              amount: winDecimal,
+              currency: 'BRL',
+              raw_request: body,
+            },
+          });
+        }
+      }
+
+      const updated = await tx.user.findUnique({
+        where: { id: user.id },
+        select: {
+          balance: true,
+        },
+      });
+
+      finalBalance = updated
+        ? this.getDecimalNumber(updated.balance)
+        : this.getDecimalNumber(user.balance);
+    });
+
+    this.logger.log(
+      `handleCloneTransaction: ok userId=${userId} provider=${provider} txn_id=${txnId} bet=${betMoney} win=${winMoney} balance=${finalBalance}`,
+    );
+
+    return {
+      status: 1,
+      user_balance: finalBalance,
+    };
   }
 
   private async handlePokerBalance(body: any) {
@@ -936,6 +1221,114 @@ export class GameService {
       game_code: game.game_code,
       game_url: launchData.game_url,
       session_id: launchData.session_id ?? null,
+    };
+  }
+
+  private async launchPpCloneGame(
+    userId: number,
+    game: {
+      id: number;
+      name: string;
+      game_code: string;
+      game_id: string | null;
+      distribution: string;
+    },
+    apiBaseUrl: string | undefined,
+  ) {
+    this.logger.log(
+      `launchPpCloneGame: userId=${userId} gameId=${game.id} code=${game.game_code}`,
+    );
+
+    const config = await this.prisma.pPCloneProvider.findFirst({
+      where: { active: true },
+    });
+
+    if (!config) {
+      this.logger.error('launchPpCloneGame: pp_clone_provider_not_configured');
+      throw new NotFoundException('pp_clone_provider_not_configured');
+    }
+
+    const user = await this.getUser(userId);
+
+    const baseUrl = (apiBaseUrl ?? config.base_url).replace(/\/+$/, '');
+
+    const providerGameCode = game.game_id || game.game_code;
+
+    if (!providerGameCode) {
+      this.logger.error(
+        `launchPpCloneGame: pp_clone_game_without_provider_code gameId=${game.id}`,
+      );
+      throw new BadRequestException('pp_clone_game_without_provider_code');
+    }
+
+    const userBalanceNumber = this.getDecimalNumber(user.balance);
+
+    const payload = {
+      method: 'game_launch',
+      agent_code: config.agent_code,
+      agent_token: config.agent_secret,
+      user_code: String(user.id),
+      provider_code: 'PGSOFT',
+      game_code: providerGameCode,
+      lang: 'pt',
+      user_balance: userBalanceNumber,
+    };
+
+    const url = `${baseUrl.replace(/\/+$/, '')}/game_launch`;
+
+    this.logger.log(
+      `launchPpCloneGame: calling game_launch url=${url} userId=${user.id} game_code=${providerGameCode} payload=${JSON.stringify(
+        payload,
+      )}`,
+    );
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const rawBody = await response.text();
+
+    if (!response.ok) {
+      this.logger.error(
+        `launchPpCloneGame: pp_clone_launch_failed status=${response.status} body=${rawBody}`,
+      );
+      throw new BadRequestException('pp_clone_launch_failed');
+    }
+
+    let data: any;
+    try {
+      data = JSON.parse(rawBody);
+    } catch {
+      this.logger.error(
+        `launchPpCloneGame: pp_clone_launch_invalid_json body=${rawBody}`,
+      );
+      throw new BadRequestException('pp_clone_launch_invalid_response');
+    }
+
+    const launchUrl =
+      data.launch_url ||
+      data.launchUrl ||
+      data.game_url ||
+      data.url ||
+      data.play_url;
+
+    if (!launchUrl || typeof launchUrl !== 'string') {
+      this.logger.error(
+        `launchPpCloneGame: pp_clone_launch_missing_url body=${rawBody}`,
+      );
+      throw new BadRequestException('pp_clone_launch_missing_url');
+    }
+
+    this.logger.log(
+      `launchPpCloneGame: success userId=${user.id} gameId=${game.id}`,
+    );
+
+    return {
+      url: launchUrl,
     };
   }
 

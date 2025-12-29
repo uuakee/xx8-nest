@@ -81,25 +81,63 @@ export class AuthService {
     });
     if (docExists) throw new BadRequestException('document_in_use');
 
-    const inviter = dto.inviterAffiliateCode
-      ? await this.prisma.user.findFirst({
-          where: { affiliate_code: dto.inviterAffiliateCode },
-        })
-      : null;
-
     const pid: string = await this.generatePid();
     const affiliateCode: string = await this.generateAffiliateCode();
     const passwordHash: string = await hash(dto.password, 10);
 
-    const user = await this.prisma.user.create({
-      data: {
-        pid,
-        phone: dto.phone,
-        document: dto.document,
-        password: passwordHash,
-        affiliate_code: affiliateCode,
-        invited_by_user_id: inviter?.id ?? null,
-      },
+    const user = await this.prisma.$transaction(async (tx) => {
+      let invitedByUserId: number | null = null;
+
+      if (dto.inviterAffiliateCode) {
+        const inviter = await tx.user.findFirst({
+          where: { affiliate_code: dto.inviterAffiliateCode },
+          select: {
+            id: true,
+            jump_available: true,
+            jump_limit: true,
+            jump_invite_count: true,
+          },
+        });
+
+        if (inviter) {
+          if (!inviter.jump_available) {
+            invitedByUserId = inviter.id;
+          } else {
+            const limit = inviter.jump_limit ?? 0;
+            const count = inviter.jump_invite_count ?? 0;
+
+            if (limit <= 0) {
+              invitedByUserId = inviter.id;
+            } else if (count >= limit) {
+              await tx.user.update({
+                where: { id: inviter.id },
+                data: {
+                  jump_invite_count: 0,
+                },
+              });
+            } else {
+              invitedByUserId = inviter.id;
+              await tx.user.update({
+                where: { id: inviter.id },
+                data: {
+                  jump_invite_count: count + 1,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      return tx.user.create({
+        data: {
+          pid,
+          phone: dto.phone,
+          document: dto.document,
+          password: passwordHash,
+          affiliate_code: affiliateCode,
+          invited_by_user_id: invitedByUserId,
+        },
+      });
     });
 
     const payload = { sub: user.id, pid: user.pid };

@@ -33,4 +33,14 @@ export class AppController {
   pokerWebhook(@Body() body: any) {
     return this.gameService.handlePokerWebhook(body);
   }
+
+  @Post('webhook/ppclone')
+  ppCloneWebhook(@Body() body: any) {
+    return this.gameService.handleCloneWebhook(body);
+  }
+
+  @Post('webhook/pgclone')
+  pgCloneWebhook(@Body() body: any) {
+    return this.gameService.handleCloneWebhook(body);
+  }
 }

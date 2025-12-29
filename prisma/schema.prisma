@@ -47,6 +47,14 @@ model User {
   updated_at                   DateTime             @updatedAt
   last_login_at                DateTime?
   banned_at                    DateTime?
+  jump_available               Boolean              @default(false)
+  jump_limit                   Int     @default(2)
+  jump_invite_count            Int     @default(0)
+  cpa_available                Boolean              @default(false)
+  min_deposit_for_cpa          Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_1                   Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_2                   Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_3                   Decimal @default(0.00) @db.Decimal(10, 2)
   vip_histories                VipHistory[]
   vip_bonus_redemptions        VipBonusRedemption[]
   affiliate_histories          AffiliateHistory[]   @relation("AffiliateUser")
