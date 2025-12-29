@@ -170,6 +170,11 @@ export class AuthService {
     const ok: boolean = await compare(dto.password, user.password);
     if (!ok) throw new UnauthorizedException('invalid_credentials');
 
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { last_login_at: new Date() },
+    });
+
     const payload = { sub: user.id, pid: user.pid };
     const expiresInRaw = this.config.get<string | number>('JWT_EXPIRES_IN');
     const expiresIn = this.parseExpiresToSeconds(expiresInRaw);

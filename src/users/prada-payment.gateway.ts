@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma, User } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import * as http from 'http';
 import * as https from 'https';
@@ -15,6 +16,13 @@ export class PradaPaymentGatewayService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
+
+  private getDecimalNumber(value: number | Prisma.Decimal | null | undefined) {
+    if (value === null || value === undefined) {
+      return 0;
+    }
+    return typeof value === 'number' ? value : Number(value.toString());
+  }
 
   private async postJson(urlStr: string, payload: unknown): Promise<unknown> {
     const url = new URL(urlStr);
@@ -180,12 +188,99 @@ export class PradaPaymentGatewayService {
           paid_at: now,
         },
       });
-      await tx.user.update({
+
+      const user = await tx.user.findUnique({
         where: { id: deposit.user_id },
-        data: {
-          balance: { increment: deposit.amount },
+        select: {
+          id: true,
+          invited_by_user_id: true,
         },
       });
+
+      if (user) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            balance: { increment: deposit.amount },
+          },
+        });
+
+        const rootInviterId = user.invited_by_user_id;
+        if (rootInviterId) {
+          const depositAmountNumber = this.getDecimalNumber(
+            deposit.amount as Prisma.Decimal,
+          );
+
+          let currentAffiliateId: number | null | undefined = rootInviterId;
+          let level = 1;
+
+          while (currentAffiliateId && level <= 3) {
+            const affiliate = await tx.user.findUnique({
+              where: { id: currentAffiliateId },
+              select: {
+                id: true,
+                cpa_available: true,
+                min_deposit_for_cpa: true,
+                cpa_level_1: true,
+                cpa_level_2: true,
+                cpa_level_3: true,
+                affiliate_balance: true,
+                invited_by_user_id: true,
+              },
+            });
+
+            if (!affiliate) {
+              break;
+            }
+
+            if (affiliate.cpa_available) {
+              const minDeposit = this.getDecimalNumber(
+                affiliate.min_deposit_for_cpa as Prisma.Decimal,
+              );
+
+              if (depositAmountNumber >= minDeposit) {
+                let levelAmountDecimal: Prisma.Decimal | null = null;
+                if (level === 1) {
+                  levelAmountDecimal = affiliate.cpa_level_1 as Prisma.Decimal;
+                } else if (level === 2) {
+                  levelAmountDecimal = affiliate.cpa_level_2 as Prisma.Decimal;
+                } else if (level === 3) {
+                  levelAmountDecimal = affiliate.cpa_level_3 as Prisma.Decimal;
+                }
+
+                const levelAmountNumber = this.getDecimalNumber(
+                  levelAmountDecimal,
+                );
+
+                if (levelAmountNumber > 0 && levelAmountDecimal) {
+                  await tx.affiliateHistory.create({
+                    data: {
+                      user_id: user.id,
+                      affiliate_user_id: affiliate.id,
+                      amount: levelAmountDecimal,
+                      cpa_level: level,
+                      revshare_level: 0,
+                      type: 'cpa',
+                    },
+                  });
+
+                  await tx.user.update({
+                    where: { id: affiliate.id },
+                    data: {
+                      affiliate_balance: {
+                        increment: levelAmountDecimal,
+                      },
+                    },
+                  });
+                }
+              }
+            }
+
+            currentAffiliateId = (affiliate as User).invited_by_user_id;
+            level += 1;
+          }
+        }
+      }
     });
 
     return { processed: true };
