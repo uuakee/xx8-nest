@@ -195,6 +195,10 @@ export class PradaPaymentGatewayService {
       throw new BadRequestException('prada_payment_gateway_error');
     }
 
+    // log de depuração para inspecionar a resposta da PradaPay no cashout
+    // eslint-disable-next-line no-console
+    console.log('PradaPay cashout response:', JSON.stringify(response));
+
     const { status, idTransaction } = response ?? {};
     if (!status || !idTransaction) {
       throw new BadRequestException('invalid_gateway_response');
