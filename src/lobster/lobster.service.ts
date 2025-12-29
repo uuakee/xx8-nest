@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { compare, hash } from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
+import { PradaPaymentGatewayService } from '../users/prada-payment.gateway';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -30,7 +31,10 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
-import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
+import {
+  AdminListDepositsDto,
+  AdminListWithdrawalsDto,
+} from './dto/admin-list-deposits.dto';
 import { CreateVipLevelDto } from './dto/create-vip-level.dto';
 import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
 import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
@@ -43,6 +47,7 @@ export class LobsterService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
+    private readonly pradaGateway: PradaPaymentGatewayService,
   ) {}
 
   async adminLogin(dto: AdminLoginDto) {
@@ -1088,6 +1093,172 @@ export class LobsterService {
         total_pages: Math.ceil(total / pageSize),
       },
     };
+  }
+
+  async adminListWithdrawals(filters: AdminListWithdrawalsDto) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.WithdrawalWhereInput = {};
+
+    if (filters.status) {
+      where.status = filters.status;
+    }
+
+    if (filters.created_from || filters.created_to) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (filters.created_from) {
+        createdAtFilter.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        createdAtFilter.lte = new Date(filters.created_to);
+      }
+      where.created_at = createdAtFilter;
+    }
+
+    if (filters.search) {
+      const q = filters.search;
+      where.OR = [
+        { reference: { contains: q, mode: 'insensitive' } },
+        { request_number: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const userConditions: Prisma.UserWhereInput = {};
+
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_phone) {
+      userConditions.phone = filters.user_phone;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
+    }
+
+    const allowedOrderFields: (keyof Prisma.WithdrawalOrderByWithRelationInput)[] =
+      ['created_at', 'amount', 'status', 'reference'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.WithdrawalOrderByWithRelationInput) ??
+      'created_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'created_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.WithdrawalOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.withdrawal.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+        },
+      }),
+      this.prisma.withdrawal.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  async adminApproveWithdrawal(id: number) {
+    const withdrawal = await this.prisma.withdrawal.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('withdrawal_not_found');
+    }
+
+    if (withdrawal.status !== 'PENDING') {
+      throw new BadRequestException('withdrawal_not_pending');
+    }
+
+    if (!withdrawal.user_keypix || !withdrawal.user_document) {
+      throw new BadRequestException('withdrawal_missing_data');
+    }
+
+    const name =
+      withdrawal.user_name && withdrawal.user_name.trim().length > 0
+        ? withdrawal.user_name
+        : `User ${withdrawal.user_id}`;
+
+    await this.pradaGateway.createCashout({
+      name,
+      cpf: withdrawal.user_document,
+      keypix: withdrawal.user_keypix,
+      amount: withdrawal.amount,
+    });
+
+    const now = new Date();
+
+    const updated = await this.prisma.withdrawal.update({
+      where: { id: withdrawal.id },
+      data: {
+        status: 'PAID',
+        paid_at: now,
+      },
+    });
+
+    return updated;
+  }
+
+  async adminRejectWithdrawal(id: number, reason?: string) {
+    const withdrawal = await this.prisma.withdrawal.findUnique({
+      where: { id },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('withdrawal_not_found');
+    }
+
+    if (withdrawal.status !== 'PENDING') {
+      throw new BadRequestException('withdrawal_not_pending');
+    }
+
+    const updated = await this.prisma.withdrawal.update({
+      where: { id },
+      data: {
+        status: 'REJECTED',
+        reason: reason ?? withdrawal.reason,
+      },
+    });
+
+    return updated;
   }
 
   async adminListVipHistories(filters: AdminListVipHistoriesDto) {

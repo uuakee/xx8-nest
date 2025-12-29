@@ -38,13 +38,20 @@ import { CreateMessageDto } from './dto/create-message.dto';
 import { UpdateMessageDto } from './dto/update-message.dto';
 import { CreatePromotionDto } from './dto/create-promotion.dto';
 import { UpdatePromotionDto } from './dto/update-promotion.dto';
-import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
+import {
+  AdminListDepositsDto,
+  AdminListWithdrawalsDto,
+} from './dto/admin-list-deposits.dto';
 import { CreateVipLevelDto } from './dto/create-vip-level.dto';
 import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
 import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
 import { AdminListUsersDto } from './dto/admin-list-users.dto';
 import { AdminCreateUserDto } from './dto/create-user.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+
+class AdminRejectWithdrawalDto {
+  reason?: string;
+}
 
 @Controller('lobster')
 export class LobsterController {
@@ -407,6 +414,27 @@ export class LobsterController {
   @Get('deposits')
   adminListDeposits(@Query() query: AdminListDepositsDto) {
     return this.lobsterService.adminListDeposits(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('withdrawals')
+  adminListWithdrawals(@Query() query: AdminListWithdrawalsDto) {
+    return this.lobsterService.adminListWithdrawals(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('withdrawals/:id/approve')
+  adminApproveWithdrawal(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.adminApproveWithdrawal(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('withdrawals/:id/reject')
+  adminRejectWithdrawal(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdminRejectWithdrawalDto,
+  ) {
+    return this.lobsterService.adminRejectWithdrawal(id, dto.reason);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))

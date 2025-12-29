@@ -151,6 +151,62 @@ export class PradaPaymentGatewayService {
     };
   }
 
+  async createCashout(payload: {
+    name: string;
+    cpf: string;
+    keypix: string;
+    amount: number | Prisma.Decimal;
+  }) {
+    const config = await this.prisma.pradaPayment.findFirst({
+      where: { active: true },
+    });
+    if (!config) {
+      throw new NotFoundException('prada_payment_not_configured');
+    }
+
+    const apiUrl = this.config.get<string>('API_URL') ?? '';
+    const apiUrlTrimmed = apiUrl.replace(/\/+$/, '');
+    const postback = apiUrlTrimmed
+      ? `${apiUrlTrimmed}/webhook/pradapayment-cashout`
+      : 'https://example.com/webhook/pradapayment-cashout';
+
+    const apiKey = config.api_key;
+
+    const baseUrlTrimmed = config.base_url.replace(/\/+$/, '');
+    const url = `${baseUrlTrimmed}/c1/cashout/`;
+
+    const amountNumber = this.getDecimalNumber(payload.amount);
+    const nonce = this.generateRequestNumber();
+
+    const body = {
+      'api-key': apiKey,
+      name: payload.name,
+      cpf: payload.cpf,
+      keypix: payload.keypix,
+      amount: amountNumber,
+      postback,
+      nonce,
+    };
+
+    let response: any;
+    try {
+      response = await this.postJson(url, body);
+    } catch {
+      throw new BadRequestException('prada_payment_gateway_error');
+    }
+
+    const { status, idTransaction } = response ?? {};
+    if (!status || !idTransaction) {
+      throw new BadRequestException('invalid_gateway_response');
+    }
+
+    if (status !== 'pago') {
+      throw new BadRequestException('withdrawal_not_paid');
+    }
+
+    return response;
+  }
+
   async handleWebhook(body: {
     amount?: number;
     idTransaction?: string;
