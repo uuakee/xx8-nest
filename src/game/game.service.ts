@@ -160,12 +160,31 @@ export class GameService {
     const method = body?.method;
     const agentCode = body?.agent_code;
     const agentSecret = body?.agent_secret ?? body?.agent_token;
+    const hasSecret =
+      typeof agentSecret === 'string' && agentSecret.trim().length > 0;
+
+    const hasAgentSecretField =
+      typeof body?.agent_secret === 'string' &&
+      body.agent_secret.trim().length > 0;
+    const hasAgentTokenField =
+      typeof body?.agent_token === 'string' &&
+      body.agent_token.trim().length > 0;
+
+    const safeBody: any = { ...body };
+    if (safeBody.agent_secret) {
+      safeBody.agent_secret = '***';
+    }
+    if (safeBody.agent_token) {
+      safeBody.agent_token = '***';
+    }
 
     this.logger.log(
-      `handleCloneWebhook: received method=${method} agent_code=${agentCode} user_code=${body?.user_code}`,
+      `handleCloneWebhook: received method=${method} agent_code=${agentCode} user_code=${body?.user_code} has_agent_secret_field=${hasAgentSecretField} has_agent_token_field=${hasAgentTokenField} body=${JSON.stringify(
+        safeBody,
+      )}`,
     );
 
-    if (!agentCode || !agentSecret) {
+    if (!agentCode || typeof agentCode !== 'string') {
       return { status: 0, message: 'invalid_agent' };
     }
 
@@ -179,13 +198,13 @@ export class GameService {
     if (
       ppConfig &&
       ppConfig.agent_code === agentCode &&
-      ppConfig.agent_secret === agentSecret
+      (!hasSecret || ppConfig.agent_secret === agentSecret)
     ) {
       provider = 'pp-clone';
     } else if (
       pgConfig &&
       pgConfig.agent_code === agentCode &&
-      pgConfig.agent_secret === agentSecret
+      (!hasSecret || pgConfig.agent_secret === agentSecret)
     ) {
       provider = 'pg-clone';
     }
