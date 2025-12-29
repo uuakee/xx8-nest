@@ -827,4 +827,346 @@ export class UsersService {
       },
     };
   }
+
+  async getChestSummary(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        min_deposit_for_cpa: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const chests = await this.prisma.chest.findMany({
+      where: { is_active: true },
+      orderBy: { need_referral: 'asc' },
+    });
+
+    const invitees = await this.prisma.user.findMany({
+      where: { invited_by_user_id: user.id },
+      select: { id: true },
+    });
+    const inviteeIds = invitees.map((u) => u.id);
+
+    const depositMap = new Map<number, number>();
+    const betMap = new Map<number, number>();
+
+    if (inviteeIds.length) {
+      const depositsAgg = await this.prisma.deposit.groupBy({
+        by: ['user_id'],
+        where: {
+          user_id: { in: inviteeIds },
+          status: 'PAID',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      for (const row of depositsAgg) {
+        const sum = row._sum.amount;
+        const value =
+          typeof sum === 'number'
+            ? sum
+            : sum
+              ? Number(sum.toString())
+              : 0;
+        depositMap.set(row.user_id, value);
+      }
+
+      const betsAgg = await (this.prisma as any).gameTransaction.groupBy({
+        by: ['user_id'],
+        where: {
+          user_id: { in: inviteeIds },
+          action: 'bet',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      for (const row of betsAgg) {
+        const sum = row._sum.amount;
+        const value =
+          typeof sum === 'number'
+            ? sum
+            : sum
+              ? Number(sum.toString())
+              : 0;
+        betMap.set(row.user_id, value);
+      }
+    }
+
+    const chestIds = chests.map((c) => c.id);
+    const withdrawalsByChestId = new Map<number, number>();
+    let withdrawals: any[] = [];
+
+    if (chestIds.length) {
+      withdrawals = await this.prisma.chestWithdrawal.findMany({
+        where: {
+          user_id: user.id,
+          chest_id: { in: chestIds },
+        },
+        orderBy: {
+          created_at: 'desc',
+        },
+        include: {
+          chest: true,
+        },
+      });
+
+      for (const w of withdrawals) {
+        const current = withdrawalsByChestId.get(w.chest_id) ?? 0;
+        withdrawalsByChestId.set(w.chest_id, current + 1);
+      }
+    }
+
+    const minDepositForCpa = this.getDecimalNumber(
+      user.min_deposit_for_cpa as Prisma.Decimal,
+    );
+
+    const chestSummaries = chests.map((chest) => {
+      const needReferral = chest.need_referral;
+      const chestNeedDeposit = this.getDecimalNumber(
+        chest.need_deposit as Prisma.Decimal,
+      );
+      const chestNeedBet = this.getDecimalNumber(
+        chest.need_bet as Prisma.Decimal,
+      );
+
+      const effectiveDepositThreshold = Math.max(
+        minDepositForCpa,
+        chestNeedDeposit,
+      );
+      const effectiveBetThreshold = chestNeedBet;
+
+      let qualifiedFriends = 0;
+
+      for (const userIdInvitee of inviteeIds) {
+        const totalDeposit = depositMap.get(userIdInvitee) ?? 0;
+        const totalBet = betMap.get(userIdInvitee) ?? 0;
+        if (
+          totalDeposit >= effectiveDepositThreshold &&
+          totalBet >= effectiveBetThreshold
+        ) {
+          qualifiedFriends += 1;
+        }
+      }
+
+      const maxRedeems =
+        needReferral > 0 ? Math.floor(qualifiedFriends / needReferral) : 0;
+      const redeemedCount = withdrawalsByChestId.get(chest.id) ?? 0;
+      const availableToRedeem = Math.max(maxRedeems - redeemedCount, 0);
+
+      return {
+        id: chest.id,
+        need_referral: chest.need_referral,
+        need_deposit: chest.need_deposit,
+        need_bet: chest.need_bet,
+        bonus: chest.bonus,
+        is_active: chest.is_active,
+        qualified_friends: qualifiedFriends,
+        redeemed_count: redeemedCount,
+        available_to_redeem: availableToRedeem,
+      };
+    });
+
+    const minimalDepositThreshold = chestSummaries.length
+      ? chestSummaries.reduce((min, chest) => {
+          const value = this.getDecimalNumber(
+            chest.need_deposit as Prisma.Decimal,
+          );
+          return Math.min(min, value);
+        }, Number.POSITIVE_INFINITY)
+      : 0;
+
+    const minimalBetThreshold = chestSummaries.length
+      ? chestSummaries.reduce((min, chest) => {
+          const value = this.getDecimalNumber(
+            chest.need_bet as Prisma.Decimal,
+          );
+          return Math.min(min, value);
+        }, Number.POSITIVE_INFINITY)
+      : 0;
+
+    let totalQualifiedFriends = 0;
+
+    if (minimalDepositThreshold !== 0 || minimalBetThreshold !== 0) {
+      const effectiveDepositThreshold = Math.max(
+        minDepositForCpa,
+        minimalDepositThreshold,
+      );
+      const effectiveBetThreshold = minimalBetThreshold;
+
+      for (const userIdInvitee of inviteeIds) {
+        const totalDeposit = depositMap.get(userIdInvitee) ?? 0;
+        const totalBet = betMap.get(userIdInvitee) ?? 0;
+        if (
+          totalDeposit >= effectiveDepositThreshold &&
+          totalBet >= effectiveBetThreshold
+        ) {
+          totalQualifiedFriends += 1;
+        }
+      }
+    }
+
+    return {
+      total_invited_friends: inviteeIds.length,
+      total_qualified_friends: totalQualifiedFriends,
+      chests: chestSummaries,
+      withdrawals,
+    };
+  }
+
+  async redeemChest(userId: number, chestId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          min_deposit_for_cpa: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('user_not_found');
+      }
+
+      const chest = await tx.chest.findUnique({
+        where: { id: chestId },
+      });
+
+      if (!chest || !chest.is_active) {
+        throw new BadRequestException('chest_not_available');
+      }
+
+      const invitees = await tx.user.findMany({
+        where: { invited_by_user_id: user.id },
+        select: { id: true },
+      });
+      const inviteeIds = invitees.map((u) => u.id);
+
+      if (!inviteeIds.length) {
+        throw new BadRequestException('no_qualified_friends');
+      }
+
+      const depositMap = new Map<number, number>();
+      const betMap = new Map<number, number>();
+
+      const depositsAgg = await tx.deposit.groupBy({
+        by: ['user_id'],
+        where: {
+          user_id: { in: inviteeIds },
+          status: 'PAID',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      for (const row of depositsAgg) {
+        const sum = row._sum.amount;
+        const value =
+          typeof sum === 'number'
+            ? sum
+            : sum
+              ? Number(sum.toString())
+              : 0;
+        depositMap.set(row.user_id, value);
+      }
+
+      const betsAgg = await (tx as any).gameTransaction.groupBy({
+        by: ['user_id'],
+        where: {
+          user_id: { in: inviteeIds },
+          action: 'bet',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
+
+      for (const row of betsAgg) {
+        const sum = row._sum.amount;
+        const value =
+          typeof sum === 'number'
+            ? sum
+            : sum
+              ? Number(sum.toString())
+              : 0;
+        betMap.set(row.user_id, value);
+      }
+
+      const minDepositForCpa = this.getDecimalNumber(
+        user.min_deposit_for_cpa as Prisma.Decimal,
+      );
+      const chestNeedDeposit = this.getDecimalNumber(
+        chest.need_deposit as Prisma.Decimal,
+      );
+      const chestNeedBet = this.getDecimalNumber(
+        chest.need_bet as Prisma.Decimal,
+      );
+
+      const effectiveDepositThreshold = Math.max(
+        minDepositForCpa,
+        chestNeedDeposit,
+      );
+      const effectiveBetThreshold = chestNeedBet;
+
+      let qualifiedFriends = 0;
+
+      for (const userIdInvitee of inviteeIds) {
+        const totalDeposit = depositMap.get(userIdInvitee) ?? 0;
+        const totalBet = betMap.get(userIdInvitee) ?? 0;
+        if (
+          totalDeposit >= effectiveDepositThreshold &&
+          totalBet >= effectiveBetThreshold
+        ) {
+          qualifiedFriends += 1;
+        }
+      }
+
+      if (chest.need_referral <= 0) {
+        throw new BadRequestException('invalid_chest_configuration');
+      }
+
+      const maxRedeems = Math.floor(qualifiedFriends / chest.need_referral);
+
+      if (maxRedeems <= 0) {
+        throw new BadRequestException('no_chest_available');
+      }
+
+      const existingRedeemsCount = await tx.chestWithdrawal.count({
+        where: {
+          user_id: user.id,
+          chest_id: chest.id,
+        },
+      });
+
+      if (existingRedeemsCount >= maxRedeems) {
+        throw new BadRequestException('no_chest_available');
+      }
+
+      const withdrawal = await tx.chestWithdrawal.create({
+        data: {
+          user_id: user.id,
+          chest_id: chest.id,
+          amount: chest.bonus,
+          status: false,
+        },
+        select: {
+          id: true,
+          chest_id: true,
+          amount: true,
+          status: true,
+          created_at: true,
+        },
+      });
+
+      return withdrawal;
+    });
+  }
 }

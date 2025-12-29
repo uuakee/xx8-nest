@@ -41,6 +41,9 @@ import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
 import { AdminListUsersDto } from './dto/admin-list-users.dto';
 import { AdminCreateUserDto } from './dto/create-user.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+import { CreateChestDto } from './dto/create-chest.dto';
+import { UpdateChestDto } from './dto/update-chest.dto';
+import { AdminListChestWithdrawalsDto } from './dto/admin-list-chest-withdrawals.dto';
 
 @Injectable()
 export class LobsterService {
@@ -1261,6 +1264,132 @@ export class LobsterService {
     return updated;
   }
 
+  async adminApproveChestWithdrawal(id: number) {
+    const withdrawal = await this.prisma.chestWithdrawal.findUnique({
+      where: { id },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('chest_withdrawal_not_found');
+    }
+
+    if (withdrawal.status) {
+      throw new BadRequestException('chest_withdrawal_not_pending');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedWithdrawal = await tx.chestWithdrawal.update({
+        where: { id: withdrawal.id },
+        data: {
+          status: true,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: withdrawal.user_id },
+        data: {
+          balance: {
+            increment: updatedWithdrawal.amount,
+          },
+        },
+      });
+
+      return updatedWithdrawal;
+    });
+
+    return updated;
+  }
+
+  async adminListChestWithdrawals(filters: AdminListChestWithdrawalsDto) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ChestWithdrawalWhereInput = {};
+
+    if (filters.status !== undefined) {
+      if (filters.status === 'true') {
+        where.status = true;
+      } else if (filters.status === 'false') {
+        where.status = false;
+      }
+    }
+
+    if (filters.created_from || filters.created_to) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (filters.created_from) {
+        createdAtFilter.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        createdAtFilter.lte = new Date(filters.created_to);
+      }
+      where.created_at = createdAtFilter;
+    }
+
+    const userConditions: Prisma.UserWhereInput = {};
+
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_phone) {
+      userConditions.phone = filters.user_phone;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
+    }
+
+    const allowedOrderFields: (keyof Prisma.ChestWithdrawalOrderByWithRelationInput)[] =
+      ['created_at', 'amount', 'status', 'id'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.ChestWithdrawalOrderByWithRelationInput) ??
+      'created_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'created_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.ChestWithdrawalOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.chestWithdrawal.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+          chest: true,
+        },
+      }),
+      this.prisma.chestWithdrawal.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
   async adminListVipHistories(filters: AdminListVipHistoriesDto) {
     const rawPage = filters.page ?? 1;
     const rawPageSize = filters.page_size ?? 20;
@@ -1393,6 +1522,55 @@ export class LobsterService {
   async deleteVipLevel(id: number) {
     await this.getVipLevelById(id);
     await this.prisma.vipLevel.delete({ where: { id } });
+    return { deleted: true };
+  }
+
+  async listChests() {
+    return this.prisma.chest.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async createChest(dto: CreateChestDto) {
+    return this.prisma.chest.create({
+      data: {
+        need_referral: dto.need_referral,
+        need_deposit: dto.need_deposit,
+        need_bet: dto.need_bet,
+        bonus: dto.bonus,
+        is_active: dto.is_active ?? true,
+      },
+    });
+  }
+
+  async updateChest(id: number, dto: UpdateChestDto) {
+    const chest = await this.prisma.chest.findUnique({
+      where: { id },
+    });
+    if (!chest) {
+      throw new NotFoundException('chest_not_found');
+    }
+    return this.prisma.chest.update({
+      where: { id },
+      data: {
+        ...dto,
+      },
+    });
+  }
+
+  async deleteChest(id: number) {
+    const chest = await this.prisma.chest.findUnique({
+      where: { id },
+    });
+    if (!chest) {
+      throw new NotFoundException('chest_not_found');
+    }
+    await this.prisma.chest.update({
+      where: { id },
+      data: {
+        is_active: false,
+      },
+    });
     return { deleted: true };
   }
 

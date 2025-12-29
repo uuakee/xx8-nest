@@ -48,6 +48,9 @@ import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
 import { AdminListUsersDto } from './dto/admin-list-users.dto';
 import { AdminCreateUserDto } from './dto/create-user.dto';
 import { AdminUpdateUserDto } from './dto/update-user.dto';
+import { CreateChestDto } from './dto/create-chest.dto';
+import { UpdateChestDto } from './dto/update-chest.dto';
+import { AdminListChestWithdrawalsDto } from './dto/admin-list-chest-withdrawals.dto';
 
 class AdminRejectWithdrawalDto {
   reason?: string;
@@ -378,6 +381,33 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Get('chests')
+  listChests() {
+    return this.lobsterService.listChests();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('chests')
+  createChest(@Body() dto: CreateChestDto) {
+    return this.lobsterService.createChest(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('chests/:id')
+  updateChest(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateChestDto,
+  ) {
+    return this.lobsterService.updateChest(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('chests/:id')
+  deleteChest(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteChest(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Get('users')
   adminListUsers(@Query() query: AdminListUsersDto) {
     return this.lobsterService.adminListUsers(query);
@@ -423,9 +453,21 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Get('chest-withdrawals')
+  adminListChestWithdrawals(@Query() query: AdminListChestWithdrawalsDto) {
+    return this.lobsterService.adminListChestWithdrawals(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Patch('withdrawals/:id/approve')
   adminApproveWithdrawal(@Param('id', ParseIntPipe) id: number) {
     return this.lobsterService.adminApproveWithdrawal(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('chest-withdrawals/:id/approve')
+  adminApproveChestWithdrawal(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.adminApproveChestWithdrawal(id);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))

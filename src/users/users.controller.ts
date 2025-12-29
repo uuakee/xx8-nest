@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Query,
   Req,
@@ -93,5 +94,22 @@ export class UsersController {
   ) {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.getAffiliateStats(u.sub, { from, to });
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('chests')
+  chests(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getChestSummary(u.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('chests/:id/redeem')
+  redeemChest(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.redeemChest(u.sub, id);
   }
 }
