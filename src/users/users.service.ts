@@ -7,6 +7,7 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PradaPaymentGatewayService } from './prada-payment.gateway';
 import { RedeemVipBonusDto } from './dto/redeem-vip-bonus.dto';
+import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 
 @Injectable()
 export class UsersService {
@@ -49,10 +50,7 @@ export class UsersService {
     return this.pradaGateway.createDeposit(userId, amount);
   }
 
-  async requestWithdrawal(
-    userId: number,
-    dto: { amount: number; keypix?: string; keytype?: string },
-  ) {
+  async requestWithdrawal(userId: number, dto: CreateWithdrawalDto) {
     const amount = dto.amount;
 
     if (amount <= 0) {
@@ -163,8 +161,8 @@ export class UsersService {
           user_id: user.id,
           amount: amountDecimal,
           status: 'PENDING',
-          user_name: user.phone,
-          user_document: user.document,
+          user_name: dto.user_name,
+          user_document: dto.user_document,
           user_keypix: dto.keypix,
           user_keytype: dto.keytype,
         },

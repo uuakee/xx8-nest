@@ -5,6 +5,12 @@ export class CreateWithdrawalDto {
   @IsPositive()
   amount!: number;
 
+  @IsString()
+  user_name!: string;
+
+  @IsString()
+  user_document!: string;
+
   @IsOptional()
   @IsString()
   keypix?: string;
@@ -13,4 +19,3 @@ export class CreateWithdrawalDto {
   @IsString()
   keytype?: string;
 }
-
