@@ -1,6 +1,12 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PradaPaymentGatewayService } from './prada-payment.gateway';
+import { RedeemVipBonusDto } from './dto/redeem-vip-bonus.dto';
 
 @Injectable()
 export class UsersService {
@@ -168,5 +174,201 @@ export class UsersService {
       total_lost: totalLost,
       games,
     };
+  }
+
+  async getVipBonusesSummary(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        vip_balance: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const agg = await this.prisma.vipHistory.groupBy({
+      by: ['kind'],
+      _sum: {
+        bonus: true,
+      },
+      where: {
+        user_id: user.id,
+      },
+    });
+
+    const redemptions = await this.prisma.vipBonusRedemption.groupBy({
+      by: ['bonus_type'],
+      _sum: {
+        amount: true,
+      },
+      where: {
+        user_id: user.id,
+      },
+    });
+
+    let upgradeTotal = 0;
+    let weeklyTotal = 0;
+    let monthlyTotal = 0;
+
+    for (const row of agg) {
+      const sum = row._sum.bonus;
+      const value =
+        typeof sum === 'number'
+          ? sum
+          : sum
+          ? Number(sum.toString())
+          : 0;
+      if (row.kind === 'upgrade') {
+        upgradeTotal += value;
+      } else if (row.kind === 'weekly') {
+        weeklyTotal += value;
+      } else if (row.kind === 'monthly') {
+        monthlyTotal += value;
+      }
+    }
+
+    let upgradeRedeemed = 0;
+    let weeklyRedeemed = 0;
+    let monthlyRedeemed = 0;
+
+    for (const row of redemptions) {
+      const sum = row._sum.amount;
+      const value =
+        typeof sum === 'number'
+          ? sum
+          : sum
+          ? Number(sum.toString())
+          : 0;
+      if (row.bonus_type === 'upgrade') {
+        upgradeRedeemed += value;
+      } else if (row.bonus_type === 'weekly') {
+        weeklyRedeemed += value;
+      } else if (row.bonus_type === 'monthly') {
+        monthlyRedeemed += value;
+      }
+    }
+
+    const upgradeAvailable = Math.max(upgradeTotal - upgradeRedeemed, 0);
+    const weeklyAvailable = Math.max(weeklyTotal - weeklyRedeemed, 0);
+    const monthlyAvailable = Math.max(monthlyTotal - monthlyRedeemed, 0);
+
+    return {
+      vip_balance: user.vip_balance,
+      upgrade_total: upgradeTotal,
+      weekly_total: weeklyTotal,
+      monthly_total: monthlyTotal,
+      upgrade_available: upgradeAvailable,
+      weekly_available: weeklyAvailable,
+      monthly_available: monthlyAvailable,
+    };
+  }
+
+  async redeemVipBonus(userId: number, dto: RedeemVipBonusDto) {
+    const bonusType = dto.bonusType;
+    const amount = dto.amount;
+
+    if (amount <= 0) {
+      throw new BadRequestException('invalid_amount');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          balance: true,
+          vip_balance: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('user_not_found');
+      }
+
+      const bonusesAgg = await tx.vipHistory.aggregate({
+        _sum: {
+          bonus: true,
+        },
+        where: {
+          user_id: user.id,
+          kind: bonusType,
+        },
+      });
+
+      const bonusesSum = bonusesAgg._sum.bonus;
+      const totalGranted =
+        typeof bonusesSum === 'number'
+          ? bonusesSum
+          : bonusesSum
+          ? Number(bonusesSum.toString())
+          : 0;
+
+      if (totalGranted <= 0) {
+        throw new BadRequestException('vip_bonus_not_available');
+      }
+
+      const redemptionsAgg = await tx.vipBonusRedemption.aggregate({
+        _sum: {
+          amount: true,
+        },
+        where: {
+          user_id: user.id,
+          bonus_type: bonusType,
+        },
+      });
+
+      const redeemedSum = redemptionsAgg._sum.amount;
+      const totalRedeemed =
+        typeof redeemedSum === 'number'
+          ? redeemedSum
+          : redeemedSum
+          ? Number(redeemedSum.toString())
+          : 0;
+
+      const available = totalGranted - totalRedeemed;
+
+      if (available <= 0) {
+        throw new BadRequestException('vip_bonus_not_available');
+      }
+
+      if (amount > available) {
+        throw new BadRequestException('insufficient_vip_bonus');
+      }
+
+      const amountDecimal = new Prisma.Decimal(amount);
+
+      await tx.vipBonusRedemption.create({
+        data: {
+          user_id: user.id,
+          bonus_type: bonusType,
+          amount: amountDecimal,
+        },
+      });
+
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          vip_balance: {
+            decrement: amountDecimal,
+          },
+          balance: {
+            increment: amountDecimal,
+          },
+        },
+        select: {
+          balance: true,
+          vip_balance: true,
+        },
+      });
+
+      return {
+        bonus_type: bonusType,
+        redeemed_amount: amount,
+        balance: updatedUser.balance,
+        vip_balance: updatedUser.vip_balance,
+      };
+    });
   }
 }

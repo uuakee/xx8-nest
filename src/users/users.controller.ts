@@ -11,6 +11,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { CreateDepositDto } from './dto/create-deposit.dto';
+import { RedeemVipBonusDto } from './dto/redeem-vip-bonus.dto';
 
 @Controller('users')
 export class UsersController {
@@ -46,5 +47,22 @@ export class UsersController {
   ) {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.getGameHistory(u.sub, hours);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('vip-bonuses')
+  vipBonuses(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getVipBonusesSummary(u.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('redeem-vip-bonus')
+  redeemVipBonus(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Body() dto: RedeemVipBonusDto,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.redeemVipBonus(u.sub, dto);
   }
 }

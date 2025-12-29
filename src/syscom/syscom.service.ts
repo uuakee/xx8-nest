@@ -99,6 +99,19 @@ export class SyscomService {
     });
   }
 
+   listVipLevels() {
+    return this.prisma.vipLevel.findMany({
+      orderBy: { id_vip: 'asc' },
+      select: {
+        id_vip: true,
+        goal: true,
+        bonus: true,
+        weekly_bonus: true,
+        monthly_bonus: true,
+      },
+    });
+  }
+
   async listCategoryGames(categoryId: number, page: number, pageSize: number) {
     const skip = (page - 1) * pageSize;
 

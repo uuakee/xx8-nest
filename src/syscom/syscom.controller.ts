@@ -62,4 +62,9 @@ export class SyscomController {
   getSettings() {
     return this.syscomService.getSettings();
   }
+
+  @Get('vip-levels')
+  listVipLevels() {
+    return this.syscomService.listVipLevels();
+  }
 }

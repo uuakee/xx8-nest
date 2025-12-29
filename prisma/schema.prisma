@@ -48,6 +48,7 @@ model User {
   last_login_at                DateTime?
   banned_at                    DateTime?
   vip_histories                VipHistory[]
+  vip_bonus_redemptions        VipBonusRedemption[]
   affiliate_histories          AffiliateHistory[]   @relation("AffiliateUser")
   referred_affiliate_histories AffiliateHistory[]   @relation("AffiliateReferrer")
   chest_withdrawls             ChestWithdrawal[]
@@ -289,6 +290,18 @@ model VipHistory {
   @@index([user_id, created_at])
   @@index([vip_level_id])
   @@map("vip_histories")
+}
+
+model VipBonusRedemption {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  bonus_type String
+  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, bonus_type, created_at])
+  @@map("vip_bonus_redemptions")
 }
 
 model Deposit {
