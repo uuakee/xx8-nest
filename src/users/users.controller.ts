@@ -12,6 +12,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { RedeemVipBonusDto } from './dto/redeem-vip-bonus.dto';
+import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 
 @Controller('users')
 export class UsersController {
@@ -40,6 +41,16 @@ export class UsersController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Post('withdraw')
+  withdraw(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Body() dto: CreateWithdrawalDto,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.requestWithdrawal(u.sub, dto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('game-history')
   gameHistory(
     @Req() req: { user?: { sub: number; pid: string } },
@@ -64,5 +75,23 @@ export class UsersController {
   ) {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.redeemVipBonus(u.sub, dto);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('vip-progress')
+  vipProgress(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getVipProgress(u.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('affiliate-stats')
+  affiliateStats(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getAffiliateStats(u.sub, { from, to });
   }
 }

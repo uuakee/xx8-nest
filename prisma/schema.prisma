@@ -39,6 +39,8 @@ model User {
   affiliate_code      String? @unique
   invited_by_user_id  Int?
   password_withdrawal String?
+  rollover_active     Boolean @default(false)
+  rollover_multiplier Decimal @default(1.00) @db.Decimal(10, 2)
 
   blogger                      Boolean              @default(false)
   banned                       Boolean              @default(false)
@@ -61,6 +63,7 @@ model User {
   referred_affiliate_histories AffiliateHistory[]   @relation("AffiliateReferrer")
   chest_withdrawls             ChestWithdrawal[]
   deposits                     Deposit[]
+  withdrawals                  Withdrawal[]
   level_promo_progresses       LevelPromoProgress[]
   inviter                      User?                @relation("UserInviter", fields: [invited_by_user_id], references: [id])
   invitees                     User[]               @relation("UserInviter")
@@ -141,6 +144,9 @@ model Setting {
   max_deposit      Decimal           @default(5000.00) @db.Decimal(10, 2)
   min_withdrawal   Decimal           @default(5.00) @db.Decimal(10, 2)
   max_withdrawal   Decimal           @default(5000.00) @db.Decimal(10, 2)
+  auto_withdrawal  Boolean           @default(true)
+  auto_withdrawal_limit Decimal           @default(5000.00) @db.Decimal(10, 2)
+  
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -326,6 +332,27 @@ model Deposit {
 
   @@index([user_id, created_at, status, reference])
   @@map("deposits")
+}
+
+model Withdrawal {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
+  status     String   @default("PENDING")
+  request_number String?
+  user_name      String?
+  user_document  String?
+  user_keypix    String?
+  user_keytype   String?
+  reason         String?
+  reference  String?
+  paid_at    DateTime?
+  updated_at DateTime @updatedAt
+  created_at DateTime @default(now())
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at, status, reference])
+  @@map("withdrawals")
 }
 
 model LevelPromoTier {

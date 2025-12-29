@@ -269,6 +269,8 @@ export class LobsterService {
           balance: true,
           affiliate_balance: true,
           vip_balance: true,
+          rollover_active: true,
+          rollover_multiplier: true,
           blogger: true,
           banned: true,
           status: true,
@@ -304,6 +306,8 @@ export class LobsterService {
         vip: true,
         affiliate_code: true,
         invited_by_user_id: true,
+        rollover_active: true,
+        rollover_multiplier: true,
         blogger: true,
         banned: true,
         status: true,
@@ -436,6 +440,12 @@ export class LobsterService {
     if (dto.vip_balance !== undefined) {
       data.vip_balance = dto.vip_balance;
     }
+    if (dto.rollover_active !== undefined) {
+      data.rollover_active = dto.rollover_active;
+    }
+    if (dto.rollover_multiplier !== undefined) {
+      data.rollover_multiplier = dto.rollover_multiplier;
+    }
 
     if (dto.new_password) {
       data.password = await hash(dto.new_password, 10);
@@ -457,6 +467,8 @@ export class LobsterService {
         balance: true,
         affiliate_balance: true,
         vip_balance: true,
+        rollover_active: true,
+        rollover_multiplier: true,
         blogger: true,
         banned: true,
         status: true,

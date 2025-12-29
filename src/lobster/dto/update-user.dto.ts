@@ -112,4 +112,15 @@ export class AdminUpdateUserDto {
   @IsString()
   @MinLength(4)
   new_withdrawal_password?: string;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  rollover_active?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  rollover_multiplier?: number;
 }
