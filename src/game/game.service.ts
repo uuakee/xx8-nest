@@ -195,11 +195,7 @@ export class GameService {
 
     let provider: 'pp-clone' | 'pg-clone' | null = null;
 
-    if (
-      ppConfig &&
-      ppConfig.agent_code === agentCode &&
-      (!hasSecret || ppConfig.agent_secret === agentSecret)
-    ) {
+    if (ppConfig && ppConfig.agent_code === agentCode) {
       provider = 'pp-clone';
     } else if (
       pgConfig &&
@@ -302,6 +298,8 @@ export class GameService {
         select: {
           id: true,
           balance: true,
+          affiliate_balance: true,
+          vip_balance: true,
         },
       });
 
@@ -312,14 +310,31 @@ export class GameService {
         return { status: 0, user_balance: 0 };
       }
 
-      const balance = this.getDecimalNumber(user.balance);
+      const mainBalance = this.getDecimalNumber(user.balance);
+      const affiliateBalance = this.getDecimalNumber(
+        user.affiliate_balance ?? 0,
+      );
+      const vipBalance = this.getDecimalNumber(user.vip_balance ?? 0);
+      const totalBalance = mainBalance + affiliateBalance + vipBalance;
+
+      if (totalBalance <= 0) {
+        this.logger.log(
+          `handleCloneUserBalance: insufficient_funds userId=${user.id} totalBalance=${totalBalance}`,
+        );
+        return {
+          status: 0,
+          user_balance: 0,
+          msg: 'INSUFFICIENT_USER_FUNDS',
+        };
+      }
+
       this.logger.log(
-        `handleCloneUserBalance: ok userId=${user.id} balance=${balance}`,
+        `handleCloneUserBalance: ok userId=${user.id} balance=${totalBalance}`,
       );
 
       return {
         status: 1,
-        user_balance: balance,
+        user_balance: totalBalance,
       };
     } catch (err) {
       this.logger.error(
@@ -343,11 +358,14 @@ export class GameService {
       return { status: 0, user_balance: 0 };
     }
 
-    const slot = body?.slot ?? {};
-    const txnIdRaw = slot?.txn_id;
-    const gameCodeRaw = slot?.game_code;
-    const betMoneyRaw = slot?.bet_money;
-    const winMoneyRaw = slot?.win_money;
+    const gameType = body?.game_type;
+    const section =
+      gameType === 'live' ? body?.live ?? {} : body?.slot ?? {};
+
+    const txnIdRaw = section?.txn_id;
+    const gameCodeRaw = section?.game_code;
+    const betMoneyRaw = section?.bet_money;
+    const winMoneyRaw = section?.win_money;
 
     const txnId =
       typeof txnIdRaw === 'string' && txnIdRaw
