@@ -590,6 +590,23 @@ export class LobsterService {
     });
   }
 
+   async addGamesToCategory(categoryId: number, gameIds: number[]) {
+    await this.ensureCategoryExists(categoryId);
+    if (!gameIds || gameIds.length === 0) {
+      return this.getCategoryById(categoryId);
+    }
+    await Promise.all(gameIds.map((id) => this.ensureGameExists(id)));
+    return this.prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        games: {
+          connect: gameIds.map((id) => ({ id })),
+        },
+      },
+      include: { games: true },
+    });
+  }
+
   async listGames() {
     return this.prisma.game.findMany({
       orderBy: { created_at: 'desc' },
@@ -633,6 +650,31 @@ export class LobsterService {
     return this.prisma.game.update({
       where: { id },
       data: dto,
+    });
+  }
+
+  async setGameCategories(gameId: number, categoryIds: number[]) {
+    await this.ensureGameExists(gameId);
+    if (!categoryIds || categoryIds.length === 0) {
+      return this.prisma.game.update({
+        where: { id: gameId },
+        data: {
+          categories: {
+            set: [],
+          },
+        },
+        include: { categories: true },
+      });
+    }
+    await Promise.all(categoryIds.map((id) => this.ensureCategoryExists(id)));
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: {
+        categories: {
+          set: categoryIds.map((id) => ({ id })),
+        },
+      },
+      include: { categories: true },
     });
   }
 

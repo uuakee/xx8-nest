@@ -14,7 +14,11 @@ import { AuthGuard } from '@nestjs/passport';
 import { LobsterService } from './lobster.service';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import {
+  AddGamesToCategoryDto,
+  SetGameCategoriesDto,
+  UpdateCategoryDto,
+} from './dto/update-category.dto';
 import { CreateGameDto } from './dto/create-game.dto';
 import { UpdateGameDto } from './dto/update-game.dto';
 import { UpdatePradaPaymentDto } from './dto/update-prada-payment.dto';
@@ -88,6 +92,15 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Post('categories/:id/games')
+  addGamesToCategory(
+    @Param('id', ParseIntPipe) categoryId: number,
+    @Body() dto: AddGamesToCategoryDto,
+  ) {
+    return this.lobsterService.addGamesToCategory(categoryId, dto.game_ids);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Get('games')
   listGames() {
     return this.lobsterService.listGames();
@@ -112,6 +125,15 @@ export class LobsterController {
     @Body() dto: UpdateGameDto,
   ) {
     return this.lobsterService.updateGame(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('games/:id/categories')
+  setGameCategories(
+    @Param('id', ParseIntPipe) gameId: number,
+    @Body() dto: SetGameCategoriesDto,
+  ) {
+    return this.lobsterService.setGameCategories(gameId, dto.category_ids);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
