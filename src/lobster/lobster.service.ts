@@ -1,11 +1,12 @@
 import {
+  BadRequestException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
-import { compare } from 'bcrypt';
+import { compare, hash } from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { AdminLoginDto } from './dto/admin-login.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -33,6 +34,9 @@ import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
 import { CreateVipLevelDto } from './dto/create-vip-level.dto';
 import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
 import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
+import { AdminListUsersDto } from './dto/admin-list-users.dto';
+import { AdminCreateUserDto } from './dto/create-user.dto';
+import { AdminUpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class LobsterService {
@@ -67,6 +71,412 @@ export class LobsterService {
         status: admin.status,
       },
     };
+  }
+
+  private async generatePid(): Promise<string> {
+    const len = 8;
+    let pid = '';
+    let exists: unknown;
+    do {
+      pid = '';
+      for (let i = 0; i < len; i++) {
+        pid += Math.floor(Math.random() * 10).toString();
+      }
+      exists = await this.prisma.user.findUnique({ where: { pid } });
+    } while (exists);
+    return pid;
+  }
+
+  private async generateAffiliateCode(): Promise<string> {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    let exists: unknown;
+    do {
+      code = '';
+      for (let i = 0; i < 8; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+      }
+      exists = await this.prisma.user.findFirst({
+        where: { affiliate_code: code },
+      });
+    } while (exists);
+    return code;
+  }
+
+  async adminCreateUser(dto: AdminCreateUserDto) {
+    const phoneExists = await this.prisma.user.findUnique({
+      where: { phone: dto.phone },
+    });
+    if (phoneExists) {
+      throw new BadRequestException('phone_in_use');
+    }
+    const docExists = await this.prisma.user.findUnique({
+      where: { document: dto.document },
+    });
+    if (docExists) {
+      throw new BadRequestException('document_in_use');
+    }
+
+    const pid = await this.generatePid();
+    const affiliateCode = await this.generateAffiliateCode();
+    const passwordHash = await hash(dto.password, 10);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      let invitedByUserId: number | null = null;
+
+      if (dto.inviterAffiliateCode) {
+        const inviter = await tx.user.findFirst({
+          where: { affiliate_code: dto.inviterAffiliateCode },
+          select: {
+            id: true,
+            jump_available: true,
+            jump_limit: true,
+            jump_invite_count: true,
+          },
+        });
+
+        if (inviter) {
+          if (!inviter.jump_available) {
+            invitedByUserId = inviter.id;
+          } else {
+            const limit = inviter.jump_limit ?? 0;
+            const count = inviter.jump_invite_count ?? 0;
+
+            if (limit <= 0) {
+              invitedByUserId = inviter.id;
+            } else if (count >= limit) {
+              await tx.user.update({
+                where: { id: inviter.id },
+                data: {
+                  jump_invite_count: 0,
+                },
+              });
+            } else {
+              invitedByUserId = inviter.id;
+              await tx.user.update({
+                where: { id: inviter.id },
+                data: {
+                  jump_invite_count: count + 1,
+                },
+              });
+            }
+          }
+        }
+      }
+
+      return tx.user.create({
+        data: {
+          pid,
+          phone: dto.phone,
+          document: dto.document,
+          password: passwordHash,
+          affiliate_code: affiliateCode,
+          invited_by_user_id: invitedByUserId,
+        },
+        select: {
+          id: true,
+          pid: true,
+          phone: true,
+          document: true,
+          status: true,
+          banned: true,
+          blogger: true,
+          vip: true,
+          created_at: true,
+        },
+      });
+    });
+
+    return user;
+  }
+
+  async adminListUsers(filters: AdminListUsersDto) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.UserWhereInput = {};
+
+    if (filters.pid) {
+      where.pid = filters.pid;
+    }
+    if (filters.phone) {
+      where.phone = filters.phone;
+    }
+    if (filters.document) {
+      where.document = filters.document;
+    }
+    if (filters.status !== undefined) {
+      where.status = filters.status;
+    }
+    if (filters.banned !== undefined) {
+      where.banned = filters.banned;
+    }
+
+    if (filters.created_from || filters.created_to) {
+      const createdAtFilter: Prisma.DateTimeFilter = {};
+      if (filters.created_from) {
+        createdAtFilter.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        createdAtFilter.lte = new Date(filters.created_to);
+      }
+      where.created_at = createdAtFilter;
+    }
+
+    if (filters.search) {
+      const q = filters.search;
+      where.OR = [
+        { pid: { contains: q, mode: 'insensitive' } },
+        { phone: { contains: q, mode: 'insensitive' } },
+        { document: { contains: q, mode: 'insensitive' } },
+        { affiliate_code: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
+    const allowedOrderFields: (keyof Prisma.UserOrderByWithRelationInput)[] = [
+      'created_at',
+      'last_login_at',
+      'id',
+    ];
+    const requestedField =
+      (filters.order_by as keyof Prisma.UserOrderByWithRelationInput) ??
+      'created_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'created_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.UserOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.user.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        select: {
+          id: true,
+          pid: true,
+          phone: true,
+          document: true,
+          vip: true,
+          affiliate_code: true,
+          balance: true,
+          affiliate_balance: true,
+          vip_balance: true,
+          blogger: true,
+          banned: true,
+          status: true,
+          created_at: true,
+          last_login_at: true,
+        },
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  async adminGetUserById(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        pid: true,
+        phone: true,
+        document: true,
+        balance: true,
+        affiliate_balance: true,
+        vip_balance: true,
+        vip: true,
+        affiliate_code: true,
+        invited_by_user_id: true,
+        blogger: true,
+        banned: true,
+        status: true,
+        created_at: true,
+        updated_at: true,
+        last_login_at: true,
+        jump_available: true,
+        jump_limit: true,
+        jump_invite_count: true,
+        cpa_available: true,
+        min_deposit_for_cpa: true,
+        cpa_level_1: true,
+        cpa_level_2: true,
+        cpa_level_3: true,
+        vip_histories: {
+          orderBy: { created_at: 'desc' },
+        },
+        vip_bonus_redemptions: {
+          orderBy: { created_at: 'desc' },
+        },
+        deposits: {
+          orderBy: { created_at: 'desc' },
+        },
+        level_promo_progresses: true,
+        affiliate_histories: {
+          orderBy: { created_at: 'desc' },
+        },
+        referred_affiliate_histories: {
+          orderBy: { created_at: 'desc' },
+        },
+        chest_withdrawls: {
+          orderBy: { created_at: 'desc' },
+        },
+        inviter: {
+          select: {
+            id: true,
+            pid: true,
+            phone: true,
+            document: true,
+          },
+        },
+        invitees: {
+          select: {
+            id: true,
+            pid: true,
+            phone: true,
+            document: true,
+            created_at: true,
+          },
+          orderBy: { created_at: 'desc' },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const vipLevel =
+      user.vip && user.vip > 0
+        ? await this.prisma.vipLevel.findFirst({
+            where: { id_vip: user.vip },
+          })
+        : null;
+
+    return {
+      ...user,
+      vip_level: vipLevel,
+    };
+  }
+
+  async adminUpdateUser(id: number, dto: AdminUpdateUserDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const data: Prisma.UserUpdateInput = {};
+
+    if (dto.phone !== undefined) {
+      data.phone = dto.phone;
+    }
+    if (dto.document !== undefined) {
+      data.document = dto.document;
+    }
+    if (dto.vip !== undefined) {
+      data.vip = dto.vip;
+    }
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+    }
+    if (dto.banned !== undefined) {
+      data.banned = dto.banned;
+    }
+    if (dto.blogger !== undefined) {
+      data.blogger = dto.blogger;
+    }
+    if (dto.jump_available !== undefined) {
+      data.jump_available = dto.jump_available;
+    }
+    if (dto.jump_limit !== undefined) {
+      data.jump_limit = dto.jump_limit;
+    }
+    if (dto.jump_invite_count !== undefined) {
+      data.jump_invite_count = dto.jump_invite_count;
+    }
+    if (dto.cpa_available !== undefined) {
+      data.cpa_available = dto.cpa_available;
+    }
+    if (dto.cpa_level_1 !== undefined) {
+      data.cpa_level_1 = dto.cpa_level_1;
+    }
+    if (dto.cpa_level_2 !== undefined) {
+      data.cpa_level_2 = dto.cpa_level_2;
+    }
+    if (dto.cpa_level_3 !== undefined) {
+      data.cpa_level_3 = dto.cpa_level_3;
+    }
+    if (dto.min_deposit_for_cpa !== undefined) {
+      data.min_deposit_for_cpa = dto.min_deposit_for_cpa;
+    }
+
+    if (dto.new_password) {
+      data.password = await hash(dto.new_password, 10);
+    }
+    if (dto.new_withdrawal_password) {
+      data.password_withdrawal = dto.new_withdrawal_password;
+    }
+
+    const updated = await this.prisma.user.update({
+      where: { id },
+      data,
+      select: {
+        id: true,
+        pid: true,
+        phone: true,
+        document: true,
+        vip: true,
+        affiliate_code: true,
+        balance: true,
+        affiliate_balance: true,
+        vip_balance: true,
+        blogger: true,
+        banned: true,
+        status: true,
+        created_at: true,
+        last_login_at: true,
+      },
+    });
+
+    return updated;
+  }
+
+  async adminDeleteUser(id: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: {
+        status: false,
+        banned: true,
+      },
+    });
+
+    return { deleted: true };
   }
 
   async listCategories() {

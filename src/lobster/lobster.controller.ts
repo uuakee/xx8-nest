@@ -38,6 +38,9 @@ import { AdminListDepositsDto } from './dto/admin-list-deposits.dto';
 import { CreateVipLevelDto } from './dto/create-vip-level.dto';
 import { UpdateVipLevelDto } from './dto/update-vip-level.dto';
 import { AdminListVipHistoriesDto } from './dto/admin-list-vip-histories.dto';
+import { AdminListUsersDto } from './dto/admin-list-users.dto';
+import { AdminCreateUserDto } from './dto/create-user.dto';
+import { AdminUpdateUserDto } from './dto/update-user.dto';
 
 @Controller('lobster')
 export class LobsterController {
@@ -343,6 +346,39 @@ export class LobsterController {
   @Delete('promotions/:id')
   deletePromotion(@Param('id', ParseIntPipe) id: number) {
     return this.lobsterService.deletePromotion(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('users')
+  adminListUsers(@Query() query: AdminListUsersDto) {
+    return this.lobsterService.adminListUsers(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('users/:id')
+  adminGetUserById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.adminGetUserById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('users')
+  adminCreateUser(@Body() dto: AdminCreateUserDto) {
+    return this.lobsterService.adminCreateUser(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('users/:id')
+  adminUpdateUser(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdminUpdateUserDto,
+  ) {
+    return this.lobsterService.adminUpdateUser(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('users/:id')
+  adminDeleteUser(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.adminDeleteUser(id);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
