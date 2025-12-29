@@ -1412,6 +1412,7 @@ export class GameService {
       method: 'game_launch',
       agent_code: config.agent_code,
       agent_token: config.agent_token,
+      agentToken: config.agent_token,
       secretKey: config.agent_secret,
       user_code: String(user.id),
       provider_code: 'PGSOFT',
@@ -1452,6 +1453,20 @@ export class GameService {
         `launchPgCloneGame: pg_clone_launch_invalid_json body=${rawBody}`,
       );
       throw new BadRequestException('pg_clone_launch_invalid_response');
+    }
+
+    if (
+      data &&
+      ((typeof data.status === 'number' && data.status !== 1) ||
+        (typeof data.status === 'string' &&
+          data.status.toLowerCase() !== '1' &&
+          data.status.toLowerCase() !== 'success') ||
+        data.status === 'error')
+    ) {
+      this.logger.error(
+        `launchPgCloneGame: pg_clone_launch_error status_field=${data.status} message=${data.message ?? data.msg ?? ''} body=${rawBody}`,
+      );
+      throw new BadRequestException('pg_clone_launch_error');
     }
 
     const launchUrl =
