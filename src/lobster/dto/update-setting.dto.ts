@@ -1,4 +1,12 @@
-import { IsNumber, IsOptional, IsString, MinLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MinLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateSettingDto {
   @IsOptional()
@@ -49,4 +57,15 @@ export class UpdateSettingDto {
   @IsOptional()
   @IsNumber()
   max_withdrawal?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  auto_withdrawal?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  auto_withdrawal_limit?: number;
 }
