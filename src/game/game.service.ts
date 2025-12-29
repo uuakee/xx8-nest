@@ -159,7 +159,7 @@ export class GameService {
   async handleCloneWebhook(body: any) {
     const method = body?.method;
     const agentCode = body?.agent_code;
-    const agentSecret = body?.agent_secret;
+    const agentSecret = body?.agent_secret ?? body?.agent_token;
 
     this.logger.log(
       `handleCloneWebhook: received method=${method} agent_code=${agentCode} user_code=${body?.user_code}`,
