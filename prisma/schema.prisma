@@ -73,6 +73,7 @@ model User {
   inviter                      User?                @relation("UserInviter", fields: [invited_by_user_id], references: [id])
   invitees                     User[]               @relation("UserInviter")
   game_transactions            GameTransaction[]
+  reedem_code_histories        ReedemCodeHistory[]
 
   @@index([status, banned])
   @@index([created_at])
@@ -275,11 +276,28 @@ model ReedemCode {
   code            String   @unique
   max_collect     Int      @default(0)
   collected_count Int      @default(0)
+  bonus           Decimal?  @default(0.00) @db.Decimal(10, 2)
+  free_spins      Int?      @default(0)
   is_active       Boolean  @default(true)
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
+  reedem_code_histories ReedemCodeHistory[]
 
   @@map("reedem_codes")
+}
+
+model ReedemCodeHistory {
+  id              Int      @id @default(autoincrement())
+  reedem_code_id  Int
+  user_id         Int
+  collected_at    DateTime @default(now())
+  bonus           Decimal?  @default(0.00) @db.Decimal(10, 2)
+  free_spins      Int?      @default(0)
+  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  reedem_code     ReedemCode @relation(fields: [reedem_code_id], references: [id])
+
+  @@index([reedem_code_id, user_id])
+  @@map("reedem_code_histories")
 }
 
 model VipLevel {

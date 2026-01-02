@@ -51,6 +51,9 @@ import { AdminUpdateUserDto } from './dto/update-user.dto';
 import { CreateChestDto } from './dto/create-chest.dto';
 import { UpdateChestDto } from './dto/update-chest.dto';
 import { AdminListChestWithdrawalsDto } from './dto/admin-list-chest-withdrawals.dto';
+import { CreateReedemCodeDto } from './dto/create-reedem-code.dto';
+import { UpdateReedemCodeDto } from './dto/update-reedem-code.dto';
+import { AdminListReedemCodeHistoriesDto } from './dto/admin-list-reedem-code-histories.dto';
 
 class AdminRejectWithdrawalDto {
   reason?: string;
@@ -459,24 +462,44 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
-  @Patch('withdrawals/:id/approve')
-  adminApproveWithdrawal(@Param('id', ParseIntPipe) id: number) {
-    return this.lobsterService.adminApproveWithdrawal(id);
+  @Get('redeem-codes')
+  listReedemCodes() {
+    return this.lobsterService.listReedemCodes();
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
-  @Patch('chest-withdrawals/:id/approve')
-  adminApproveChestWithdrawal(@Param('id', ParseIntPipe) id: number) {
-    return this.lobsterService.adminApproveChestWithdrawal(id);
+  @Get('redeem-codes/:id')
+  getReedemCodeById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getReedemCodeById(id);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
-  @Patch('withdrawals/:id/reject')
-  adminRejectWithdrawal(
+  @Post('redeem-codes')
+  createReedemCode(@Body() dto: CreateReedemCodeDto) {
+    return this.lobsterService.createReedemCode(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('redeem-codes/:id')
+  updateReedemCode(
     @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AdminRejectWithdrawalDto,
+    @Body() dto: UpdateReedemCodeDto,
   ) {
-    return this.lobsterService.adminRejectWithdrawal(id, dto.reason);
+    return this.lobsterService.updateReedemCode(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('redeem-codes/:id')
+  deleteReedemCode(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteReedemCode(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('redeem-code-histories')
+  adminListReedemCodeHistories(
+    @Query() query: AdminListReedemCodeHistoriesDto,
+  ) {
+    return this.lobsterService.adminListReedemCodeHistories(query);
   }
 
   @UseGuards(AuthGuard('admin-jwt'))

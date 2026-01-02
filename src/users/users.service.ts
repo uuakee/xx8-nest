@@ -1155,7 +1155,7 @@ export class UsersService {
           user_id: user.id,
           chest_id: chest.id,
           amount: chest.bonus,
-          status: false,
+          status: true,
         },
         select: {
           id: true,
@@ -1166,7 +1166,104 @@ export class UsersService {
         },
       });
 
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          balance: {
+            increment: chest.bonus,
+          },
+        },
+      });
+
       return withdrawal;
+    });
+  }
+
+  async redeemCode(userId: number, code: string) {
+    if (!code || typeof code !== 'string' || code.trim().length === 0) {
+      throw new BadRequestException('invalid_code');
+    }
+
+    const normalizedCode = code.trim();
+
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('user_not_found');
+      }
+
+      const reedemCode = await tx.reedemCode.findUnique({
+        where: { code: normalizedCode },
+      });
+
+      if (!reedemCode || !reedemCode.is_active) {
+        throw new BadRequestException('redeem_code_not_available');
+      }
+
+      if (
+        reedemCode.max_collect > 0 &&
+        reedemCode.collected_count >= reedemCode.max_collect
+      ) {
+        throw new BadRequestException('redeem_code_limit_reached');
+      }
+
+      const alreadyCollected = await tx.reedemCodeHistory.findFirst({
+        where: {
+          reedem_code_id: reedemCode.id,
+          user_id: user.id,
+        },
+      });
+
+      if (alreadyCollected) {
+        throw new BadRequestException('redeem_code_already_used');
+      }
+
+      const updatedCode = await tx.reedemCode.update({
+        where: { id: reedemCode.id },
+        data: {
+          collected_count: {
+            increment: 1,
+          },
+        },
+      });
+
+      const bonusAmount = this.getDecimalNumber(reedemCode.bonus);
+      const freeSpins = reedemCode.free_spins ?? 0;
+
+      if (bonusAmount > 0) {
+        const bonusDecimal = new Prisma.Decimal(bonusAmount);
+        await tx.user.update({
+          where: { id: user.id },
+          data: {
+            balance: {
+              increment: bonusDecimal,
+            },
+          },
+        });
+      }
+
+      const history = await tx.reedemCodeHistory.create({
+        data: {
+          reedem_code_id: updatedCode.id,
+          user_id: user.id,
+          bonus: bonusAmount > 0 ? bonusAmount : 0,
+          free_spins: freeSpins > 0 ? freeSpins : 0,
+        },
+        select: {
+          id: true,
+          reedem_code_id: true,
+          user_id: true,
+          collected_at: true,
+        },
+      });
+
+      return history;
     });
   }
 }

@@ -112,4 +112,14 @@ export class UsersController {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.redeemChest(u.sub, id);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('redeem-code')
+  redeemCode(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Body('code') code: string,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.redeemCode(u.sub, code);
+  }
 }

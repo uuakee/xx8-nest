@@ -44,6 +44,9 @@ import { AdminUpdateUserDto } from './dto/update-user.dto';
 import { CreateChestDto } from './dto/create-chest.dto';
 import { UpdateChestDto } from './dto/update-chest.dto';
 import { AdminListChestWithdrawalsDto } from './dto/admin-list-chest-withdrawals.dto';
+import { CreateReedemCodeDto } from './dto/create-reedem-code.dto';
+import { UpdateReedemCodeDto } from './dto/update-reedem-code.dto';
+import { AdminListReedemCodeHistoriesDto } from './dto/admin-list-reedem-code-histories.dto';
 
 @Injectable()
 export class LobsterService {
@@ -1191,115 +1194,6 @@ export class LobsterService {
     };
   }
 
-  async adminApproveWithdrawal(id: number) {
-    const withdrawal = await this.prisma.withdrawal.findUnique({
-      where: { id },
-      include: {
-        user: {
-          select: {
-            id: true,
-          },
-        },
-      },
-    });
-
-    if (!withdrawal) {
-      throw new NotFoundException('withdrawal_not_found');
-    }
-
-    if (withdrawal.status !== 'PENDING') {
-      throw new BadRequestException('withdrawal_not_pending');
-    }
-
-    if (!withdrawal.user_keypix || !withdrawal.user_document) {
-      throw new BadRequestException('withdrawal_missing_data');
-    }
-
-    const name =
-      withdrawal.user_name && withdrawal.user_name.trim().length > 0
-        ? withdrawal.user_name
-        : `User ${withdrawal.user_id}`;
-
-    await this.pradaGateway.createCashout({
-      name,
-      cpf: withdrawal.user_document,
-      keypix: withdrawal.user_keypix,
-      amount: withdrawal.amount,
-    });
-
-    const now = new Date();
-
-    const updated = await this.prisma.withdrawal.update({
-      where: { id: withdrawal.id },
-      data: {
-        status: 'PAID',
-        paid_at: now,
-      },
-    });
-
-    return updated;
-  }
-
-  async adminRejectWithdrawal(id: number, reason?: string) {
-    const withdrawal = await this.prisma.withdrawal.findUnique({
-      where: { id },
-    });
-
-    if (!withdrawal) {
-      throw new NotFoundException('withdrawal_not_found');
-    }
-
-    if (withdrawal.status !== 'PENDING') {
-      throw new BadRequestException('withdrawal_not_pending');
-    }
-
-    const updated = await this.prisma.withdrawal.update({
-      where: { id },
-      data: {
-        status: 'REJECTED',
-        reason: reason ?? withdrawal.reason,
-      },
-    });
-
-    return updated;
-  }
-
-  async adminApproveChestWithdrawal(id: number) {
-    const withdrawal = await this.prisma.chestWithdrawal.findUnique({
-      where: { id },
-    });
-
-    if (!withdrawal) {
-      throw new NotFoundException('chest_withdrawal_not_found');
-    }
-
-    if (withdrawal.status) {
-      throw new BadRequestException('chest_withdrawal_not_pending');
-    }
-
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const updatedWithdrawal = await tx.chestWithdrawal.update({
-        where: { id: withdrawal.id },
-        data: {
-          status: true,
-        },
-      });
-
-      await tx.user.update({
-        where: { id: withdrawal.user_id },
-        data: {
-          balance: {
-            increment: updatedWithdrawal.amount,
-          },
-        },
-      });
-
-      return updatedWithdrawal;
-    });
-
-    return updated;
-  }
-
   async adminListChestWithdrawals(filters: AdminListChestWithdrawalsDto) {
     const rawPage = filters.page ?? 1;
     const rawPageSize = filters.page_size ?? 20;
@@ -1572,6 +1466,149 @@ export class LobsterService {
       },
     });
     return { deleted: true };
+  }
+
+  async listReedemCodes() {
+    return this.prisma.reedemCode.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async getReedemCodeById(id: number) {
+    const code = await this.prisma.reedemCode.findUnique({
+      where: { id },
+    });
+    if (!code) {
+      throw new NotFoundException('redeem_code_not_found');
+    }
+    return code;
+  }
+
+  async createReedemCode(dto: CreateReedemCodeDto) {
+    return this.prisma.reedemCode.create({
+      data: {
+        code: dto.code,
+        max_collect: dto.max_collect,
+        bonus: dto.bonus ?? 0,
+        free_spins: dto.free_spins ?? 0,
+        is_active: dto.is_active ?? true,
+      },
+    });
+  }
+
+  async updateReedemCode(id: number, dto: UpdateReedemCodeDto) {
+    await this.getReedemCodeById(id);
+    return this.prisma.reedemCode.update({
+      where: { id },
+      data: {
+        ...dto,
+      },
+    });
+  }
+
+  async deleteReedemCode(id: number) {
+    const code = await this.prisma.reedemCode.findUnique({
+      where: { id },
+    });
+    if (!code) {
+      throw new NotFoundException('redeem_code_not_found');
+    }
+    await this.prisma.reedemCode.update({
+      where: { id },
+      data: {
+        is_active: false,
+      },
+    });
+    return { deleted: true };
+  }
+
+  async adminListReedemCodeHistories(
+    filters: AdminListReedemCodeHistoriesDto,
+  ) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.ReedemCodeHistoryWhereInput = {};
+
+    if (filters.created_from || filters.created_to) {
+      const collectedAtFilter: Prisma.DateTimeFilter = {};
+      if (filters.created_from) {
+        collectedAtFilter.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        collectedAtFilter.lte = new Date(filters.created_to);
+      }
+      where.collected_at = collectedAtFilter;
+    }
+
+    if (filters.code) {
+      where.reedem_code = {
+        is: {
+          code: filters.code,
+        },
+      };
+    }
+
+    const userConditions: Prisma.UserWhereInput = {};
+
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
+    }
+
+    const allowedOrderFields: (keyof Prisma.ReedemCodeHistoryOrderByWithRelationInput)[] =
+      ['collected_at', 'id'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.ReedemCodeHistoryOrderByWithRelationInput) ??
+      'collected_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'collected_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.ReedemCodeHistoryOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.reedemCodeHistory.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+          reedem_code: true,
+        },
+      }),
+      this.prisma.reedemCodeHistory.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   async runVipWeeklyBonusJob() {
