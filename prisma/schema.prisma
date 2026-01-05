@@ -74,6 +74,7 @@ model User {
   invitees                     User[]               @relation("UserInviter")
   game_transactions            GameTransaction[]
   reedem_code_histories        ReedemCodeHistory[]
+  rakeback_histories           RakebackHistory[]
 
   @@index([status, banned])
   @@index([created_at])
@@ -298,6 +299,35 @@ model ReedemCodeHistory {
 
   @@index([reedem_code_id, user_id])
   @@map("reedem_code_histories")
+}
+
+model RakebackSetting {
+  id                Int               @id @default(autoincrement())
+  name              String
+  min_volume        Decimal           @default(0.00) @db.Decimal(10, 2)
+  percentage        Decimal           @default(0.00) @db.Decimal(10, 2)
+  is_active         Boolean           @default(true)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  rakebackHistories RakebackHistory[]
+
+  @@map("rakeback_settings")
+}
+
+model RakebackHistory {
+  id          Int             @id @default(autoincrement())
+  user_id     Int
+  setting_id  Int
+  amount      Decimal         @default(0.00) @db.Decimal(10, 2)
+  redeemed    Boolean         @default(false)
+  redeemed_at DateTime?
+  created_at  DateTime        @default(now())
+  user        User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  setting     RakebackSetting @relation(fields: [setting_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, created_at])
+  @@index([setting_id])
+  @@map("rakeback_histories")
 }
 
 model VipLevel {

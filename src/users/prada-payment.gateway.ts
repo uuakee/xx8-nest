@@ -267,77 +267,89 @@ export class PradaPaymentGatewayService {
 
         const rootInviterId = user.invited_by_user_id;
         if (rootInviterId) {
-          const depositAmountNumber = this.getDecimalNumber(
-            deposit.amount as Prisma.Decimal,
-          );
+          const existingCpa = await tx.affiliateHistory.findFirst({
+            where: {
+              user_id: user.id,
+              type: 'cpa',
+            },
+          });
 
-          let currentAffiliateId: number | null | undefined = rootInviterId;
-          let level = 1;
+          if (!existingCpa) {
+            const depositAmountNumber = this.getDecimalNumber(
+              deposit.amount as Prisma.Decimal,
+            );
 
-          while (currentAffiliateId && level <= 3) {
-            const affiliate = await tx.user.findUnique({
-              where: { id: currentAffiliateId },
-              select: {
-                id: true,
-                cpa_available: true,
-                min_deposit_for_cpa: true,
-                cpa_level_1: true,
-                cpa_level_2: true,
-                cpa_level_3: true,
-                affiliate_balance: true,
-                invited_by_user_id: true,
-              },
-            });
+            let currentAffiliateId: number | null | undefined = rootInviterId;
+            let level = 1;
 
-            if (!affiliate) {
-              break;
-            }
+            while (currentAffiliateId && level <= 3) {
+              const affiliate = await tx.user.findUnique({
+                where: { id: currentAffiliateId },
+                select: {
+                  id: true,
+                  cpa_available: true,
+                  min_deposit_for_cpa: true,
+                  cpa_level_1: true,
+                  cpa_level_2: true,
+                  cpa_level_3: true,
+                  affiliate_balance: true,
+                  invited_by_user_id: true,
+                },
+              });
 
-            if (affiliate.cpa_available) {
-              const minDeposit = this.getDecimalNumber(
-                affiliate.min_deposit_for_cpa as Prisma.Decimal,
-              );
+              if (!affiliate) {
+                break;
+              }
 
-              if (depositAmountNumber >= minDeposit) {
-                let levelAmountDecimal: Prisma.Decimal | null = null;
-                if (level === 1) {
-                  levelAmountDecimal = affiliate.cpa_level_1 as Prisma.Decimal;
-                } else if (level === 2) {
-                  levelAmountDecimal = affiliate.cpa_level_2 as Prisma.Decimal;
-                } else if (level === 3) {
-                  levelAmountDecimal = affiliate.cpa_level_3 as Prisma.Decimal;
-                }
-
-                const levelAmountNumber = this.getDecimalNumber(
-                  levelAmountDecimal,
+              if (affiliate.cpa_available) {
+                const minDeposit = this.getDecimalNumber(
+                  affiliate.min_deposit_for_cpa as Prisma.Decimal,
                 );
 
-                if (levelAmountNumber > 0 && levelAmountDecimal) {
-                  await tx.affiliateHistory.create({
-                    data: {
-                      user_id: user.id,
-                      affiliate_user_id: affiliate.id,
-                      amount: levelAmountDecimal,
-                      cpa_level: level,
-                      revshare_level: 0,
-                      type: 'cpa',
-                    },
-                  });
+                if (depositAmountNumber >= minDeposit) {
+                  let levelAmountDecimal: Prisma.Decimal | null = null;
+                  if (level === 1) {
+                    levelAmountDecimal =
+                      affiliate.cpa_level_1 as Prisma.Decimal;
+                  } else if (level === 2) {
+                    levelAmountDecimal =
+                      affiliate.cpa_level_2 as Prisma.Decimal;
+                  } else if (level === 3) {
+                    levelAmountDecimal =
+                      affiliate.cpa_level_3 as Prisma.Decimal;
+                  }
 
-                  await tx.user.update({
-                    where: { id: affiliate.id },
-                    data: {
-                      affiliate_balance: {
-                        increment: levelAmountDecimal,
+                  const levelAmountNumber = this.getDecimalNumber(
+                    levelAmountDecimal,
+                  );
+
+                  if (levelAmountNumber > 0 && levelAmountDecimal) {
+                    await tx.affiliateHistory.create({
+                      data: {
+                        user_id: user.id,
+                        affiliate_user_id: affiliate.id,
+                        amount: levelAmountDecimal,
+                        cpa_level: level,
+                        revshare_level: 0,
+                        type: 'cpa',
                       },
-                    },
-                  });
+                    });
+
+                    await tx.user.update({
+                      where: { id: affiliate.id },
+                      data: {
+                        affiliate_balance: {
+                          increment: levelAmountDecimal,
+                        },
+                      },
+                    });
+                  }
                 }
               }
-            }
 
-            currentAffiliateId = (affiliate as User).invited_by_user_id;
-            level += 1;
+              currentAffiliateId = (affiliate as User).invited_by_user_id;
+              level += 1;
+            }
           }
         }
       }

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { JwtService } from '@nestjs/jwt';
 import { Prisma } from '@prisma/client';
 import { compare, hash } from 'bcrypt';
@@ -47,6 +48,9 @@ import { AdminListChestWithdrawalsDto } from './dto/admin-list-chest-withdrawals
 import { CreateReedemCodeDto } from './dto/create-reedem-code.dto';
 import { UpdateReedemCodeDto } from './dto/update-reedem-code.dto';
 import { AdminListReedemCodeHistoriesDto } from './dto/admin-list-reedem-code-histories.dto';
+import { CreateRakebackSettingDto } from './dto/create-rakeback-setting.dto';
+import { UpdateRakebackSettingDto } from './dto/update-rakeback-setting.dto';
+import { AdminListRakebackHistoriesDto } from './dto/admin-list-rakeback-histories.dto';
 
 @Injectable()
 export class LobsterService {
@@ -1608,6 +1612,267 @@ export class LobsterService {
         total,
         total_pages: Math.ceil(total / pageSize),
       },
+    };
+  }
+
+  async listRakebackSettings() {
+    return this.prisma.rakebackSetting.findMany({
+      orderBy: { created_at: 'desc' },
+    });
+  }
+
+  async getRakebackSettingById(id: number) {
+    const setting = await this.prisma.rakebackSetting.findUnique({
+      where: { id },
+    });
+    if (!setting) {
+      throw new NotFoundException('rakeback_setting_not_found');
+    }
+    return setting;
+  }
+
+  async createRakebackSetting(dto: CreateRakebackSettingDto) {
+    return this.prisma.rakebackSetting.create({
+      data: {
+        name: dto.name,
+        min_volume: new Prisma.Decimal(dto.min_volume),
+        percentage: new Prisma.Decimal(dto.percentage),
+        is_active: dto.is_active ?? true,
+      },
+    });
+  }
+
+  async updateRakebackSetting(id: number, dto: UpdateRakebackSettingDto) {
+    await this.getRakebackSettingById(id);
+
+    const data: Prisma.RakebackSettingUpdateInput = {};
+
+    if (dto.name !== undefined) {
+      data.name = dto.name;
+    }
+    if (dto.min_volume !== undefined) {
+      data.min_volume = new Prisma.Decimal(dto.min_volume);
+    }
+    if (dto.percentage !== undefined) {
+      data.percentage = new Prisma.Decimal(dto.percentage);
+    }
+    if (dto.is_active !== undefined) {
+      data.is_active = dto.is_active;
+    }
+
+    return this.prisma.rakebackSetting.update({
+      where: { id },
+      data,
+    });
+  }
+
+  async deleteRakebackSetting(id: number) {
+    await this.getRakebackSettingById(id);
+    await this.prisma.rakebackSetting.delete({
+      where: { id },
+    });
+    return { deleted: true };
+  }
+
+  async adminListRakebackHistories(filters: AdminListRakebackHistoriesDto) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.RakebackHistoryWhereInput = {};
+
+    if (filters.setting_id) {
+      where.setting_id = filters.setting_id;
+    }
+
+    if (filters.redeemed !== undefined) {
+      const isRedeemed =
+        filters.redeemed === 'true' || filters.redeemed === '1';
+      where.redeemed = isRedeemed;
+    }
+
+    if (filters.created_from || filters.created_to) {
+      const createdFilter: Prisma.DateTimeFilter = {};
+      if (filters.created_from) {
+        createdFilter.gte = new Date(filters.created_from);
+      }
+      if (filters.created_to) {
+        createdFilter.lte = new Date(filters.created_to);
+      }
+      where.created_at = createdFilter;
+    }
+
+    const userConditions: Prisma.UserWhereInput = {};
+
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
+    }
+
+    const allowedOrderFields: (keyof Prisma.RakebackHistoryOrderByWithRelationInput)[] =
+      ['created_at', 'amount', 'redeemed', 'id'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.RakebackHistoryOrderByWithRelationInput) ??
+      'created_at';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'created_at';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.RakebackHistoryOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.rakebackHistory.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+          setting: true,
+        },
+      }),
+      this.prisma.rakebackHistory.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  @Cron('59 23 * * *')
+  async runDailyRakebackJob() {
+    const now = new Date();
+    const from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const settings = await this.prisma.rakebackSetting.findMany({
+      where: {
+        is_active: true,
+      },
+      orderBy: {
+        min_volume: 'asc',
+      },
+    });
+
+    if (!settings.length) {
+      return {
+        processed_users: 0,
+        created_histories: 0,
+      };
+    }
+
+    const grouped = await (this.prisma as any).gameTransaction.groupBy({
+      by: ['user_id'],
+      _sum: {
+        amount: true,
+      },
+      where: {
+        action: 'bet',
+        created_at: {
+          gte: from,
+          lte: now,
+        },
+      },
+    });
+
+    if (!grouped.length) {
+      return {
+        processed_users: 0,
+        created_histories: 0,
+      };
+    }
+
+    let createdHistories = 0;
+
+    for (const row of grouped) {
+      const sum = row._sum.amount;
+      const volume =
+        typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
+
+      if (!Number.isFinite(volume) || volume <= 0) {
+        continue;
+      }
+
+      let selectedSetting: (typeof settings)[number] | null = null;
+      for (const setting of settings) {
+        const minVolumeNumber = Number(setting.min_volume.toString());
+        if (volume >= minVolumeNumber) {
+          selectedSetting = setting;
+        } else {
+          break;
+        }
+      }
+
+      if (!selectedSetting) {
+        continue;
+      }
+
+      const percentageNumber = Number(
+        selectedSetting.percentage.toString(),
+      );
+      if (!Number.isFinite(percentageNumber) || percentageNumber <= 0) {
+        continue;
+      }
+
+      const rakebackAmount = (volume * percentageNumber) / 100;
+      if (!Number.isFinite(rakebackAmount) || rakebackAmount <= 0) {
+        continue;
+      }
+
+      const alreadyExists = await this.prisma.rakebackHistory.findFirst({
+        where: {
+          user_id: row.user_id,
+          setting_id: selectedSetting.id,
+          created_at: {
+            gte: from,
+            lte: now,
+          },
+        },
+      });
+
+      if (alreadyExists) {
+        continue;
+      }
+
+      const amountDecimal = new Prisma.Decimal(rakebackAmount);
+
+      await this.prisma.rakebackHistory.create({
+        data: {
+          user_id: row.user_id,
+          setting_id: selectedSetting.id,
+          amount: amountDecimal,
+        },
+      });
+
+      createdHistories += 1;
+    }
+
+    return {
+      processed_users: grouped.length,
+      created_histories: createdHistories,
     };
   }
 

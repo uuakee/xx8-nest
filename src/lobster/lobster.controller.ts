@@ -54,6 +54,9 @@ import { AdminListChestWithdrawalsDto } from './dto/admin-list-chest-withdrawals
 import { CreateReedemCodeDto } from './dto/create-reedem-code.dto';
 import { UpdateReedemCodeDto } from './dto/update-reedem-code.dto';
 import { AdminListReedemCodeHistoriesDto } from './dto/admin-list-reedem-code-histories.dto';
+import { CreateRakebackSettingDto } from './dto/create-rakeback-setting.dto';
+import { UpdateRakebackSettingDto } from './dto/update-rakeback-setting.dto';
+import { AdminListRakebackHistoriesDto } from './dto/admin-list-rakeback-histories.dto';
 
 class AdminRejectWithdrawalDto {
   reason?: string;
@@ -551,5 +554,46 @@ export class LobsterController {
   @Post('vip-bonuses/monthly')
   runVipMonthlyBonusJob() {
     return this.lobsterService.runVipMonthlyBonusJob();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('rakeback-settings')
+  listRakebackSettings() {
+    return this.lobsterService.listRakebackSettings();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('rakeback-settings/:id')
+  getRakebackSettingById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getRakebackSettingById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('rakeback-settings')
+  createRakebackSetting(@Body() dto: CreateRakebackSettingDto) {
+    return this.lobsterService.createRakebackSetting(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('rakeback-settings/:id')
+  updateRakebackSetting(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateRakebackSettingDto,
+  ) {
+    return this.lobsterService.updateRakebackSetting(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('rakeback-settings/:id')
+  deleteRakebackSetting(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteRakebackSetting(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('rakeback-histories')
+  adminListRakebackHistories(
+    @Query() query: AdminListRakebackHistoriesDto,
+  ) {
+    return this.lobsterService.adminListRakebackHistories(query);
   }
 }

@@ -406,6 +406,7 @@ export class UsersService {
       monthly_available: monthlyAvailable,
     };
   }
+
   async redeemVipBonus(userId: number, dto: RedeemVipBonusDto) {
     const bonusType = dto.bonusType;
     const amount = dto.amount;
@@ -570,6 +571,206 @@ export class UsersService {
       next_vip_goal: nextGoal,
       remaining_to_next: remainingToNext,
     };
+  }
+
+  async getRakebackSummary(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        balance: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const totals = await this.prisma.rakebackHistory.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        user_id: user.id,
+      },
+    });
+
+    const redeemedTotals = await this.prisma.rakebackHistory.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        user_id: user.id,
+        redeemed: true,
+      },
+    });
+
+    const pendingTotals = await this.prisma.rakebackHistory.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        user_id: user.id,
+        redeemed: false,
+      },
+    });
+
+    const totalGranted = this.getDecimalNumber(
+      totals._sum.amount as Prisma.Decimal,
+    );
+    const totalRedeemed = this.getDecimalNumber(
+      redeemedTotals._sum.amount as Prisma.Decimal,
+    );
+    const totalPending = this.getDecimalNumber(
+      pendingTotals._sum.amount as Prisma.Decimal,
+    );
+
+    const now = new Date();
+    const dayStart = new Date(now);
+    dayStart.setHours(0, 0, 0, 0);
+
+    const volumeAgg = await (this.prisma as any).gameTransaction.aggregate({
+      _sum: {
+        amount: true,
+      },
+      where: {
+        user_id: user.id,
+        action: 'bet',
+        created_at: {
+          gte: dayStart,
+          lte: now,
+        },
+      },
+    });
+
+    const totalVolumeToday = volumeAgg?._sum?.amount
+      ? this.getDecimalNumber(volumeAgg._sum.amount as Prisma.Decimal)
+      : 0;
+
+    let expectedNextRakeback = 0;
+
+    if (totalVolumeToday > 0) {
+      const settings = await this.prisma.rakebackSetting.findMany({
+        where: {
+          is_active: true,
+        },
+        orderBy: {
+          min_volume: 'asc',
+        },
+      });
+
+      let selectedSetting: (typeof settings)[number] | null = null;
+      for (const setting of settings) {
+        const minVolumeNumber = Number(setting.min_volume.toString());
+        if (totalVolumeToday >= minVolumeNumber) {
+          selectedSetting = setting;
+        } else {
+          break;
+        }
+      }
+
+      if (selectedSetting) {
+        const percentageNumber = Number(
+          selectedSetting.percentage.toString(),
+        );
+        if (Number.isFinite(percentageNumber) && percentageNumber > 0) {
+          expectedNextRakeback =
+            (totalVolumeToday * percentageNumber) / 100;
+        }
+      }
+    }
+
+    const histories = await this.prisma.rakebackHistory.findMany({
+      where: {
+        user_id: user.id,
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+      include: {
+        setting: true,
+      },
+    });
+
+    return {
+      balance: user.balance,
+      total_granted: totalGranted,
+      total_redeemed: totalRedeemed,
+      total_pending: totalPending,
+      expected_next_rakeback: expectedNextRakeback,
+      histories,
+    };
+  }
+
+  async redeemRakeback(userId: number) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          balance: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('user_not_found');
+      }
+
+      const pendingHistories = await tx.rakebackHistory.findMany({
+        where: {
+          user_id: user.id,
+          redeemed: false,
+        },
+        select: {
+          id: true,
+          amount: true,
+        },
+      });
+
+      if (!pendingHistories.length) {
+        throw new BadRequestException('no_rakeback_available');
+      }
+
+      let totalAmount = 0;
+      for (const history of pendingHistories) {
+        totalAmount += this.getDecimalNumber(
+          history.amount as Prisma.Decimal,
+        );
+      }
+
+      if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+        throw new BadRequestException('no_rakeback_available');
+      }
+
+      const amountDecimal = new Prisma.Decimal(totalAmount);
+
+      await tx.rakebackHistory.updateMany({
+        where: {
+          user_id: user.id,
+          redeemed: false,
+        },
+        data: {
+          redeemed: true,
+          redeemed_at: new Date(),
+        },
+      });
+
+      const updatedUser = await tx.user.update({
+        where: { id: user.id },
+        data: {
+          balance: {
+            increment: amountDecimal,
+          },
+        },
+        select: {
+          balance: true,
+        },
+      });
+
+      return {
+        redeemed_amount: totalAmount,
+        balance: updatedUser.balance,
+      };
+    });
   }
 
   async getAffiliateStats(

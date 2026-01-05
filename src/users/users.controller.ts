@@ -86,6 +86,20 @@ export class UsersController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('rakeback')
+  rakebackSummary(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getRakebackSummary(u.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('redeem-rakeback')
+  redeemRakeback(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.redeemRakeback(u.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('affiliate-stats')
   affiliateStats(
     @Req() req: { user?: { sub: number; pid: string } },
