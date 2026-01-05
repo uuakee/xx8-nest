@@ -57,6 +57,11 @@ import { AdminListReedemCodeHistoriesDto } from './dto/admin-list-reedem-code-hi
 import { CreateRakebackSettingDto } from './dto/create-rakeback-setting.dto';
 import { UpdateRakebackSettingDto } from './dto/update-rakeback-setting.dto';
 import { AdminListRakebackHistoriesDto } from './dto/admin-list-rakeback-histories.dto';
+import { CreateDepositPromoEventDto } from './dto/create-deposit-promo-event.dto';
+import { UpdateDepositPromoEventDto } from './dto/update-deposit-promo-event.dto';
+import { CreateDepositPromoTierDto } from './dto/create-deposit-promo-tier.dto';
+import { UpdateDepositPromoTierDto } from './dto/update-deposit-promo-tier.dto';
+import { AdminListDepositPromoParticipationsDto } from './dto/admin-list-deposit-promo-participations.dto';
 
 class AdminRejectWithdrawalDto {
   reason?: string;
@@ -595,5 +600,80 @@ export class LobsterController {
     @Query() query: AdminListRakebackHistoriesDto,
   ) {
     return this.lobsterService.adminListRakebackHistories(query);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('deposit-promo-events')
+  listDepositPromoEvents() {
+    return this.lobsterService.listDepositPromoEvents();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('deposit-promo-events/:id')
+  getDepositPromoEventById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getDepositPromoEventById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('deposit-promo-events')
+  createDepositPromoEvent(@Body() dto: CreateDepositPromoEventDto) {
+    return this.lobsterService.createDepositPromoEvent(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('deposit-promo-events/:id')
+  updateDepositPromoEvent(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDepositPromoEventDto,
+  ) {
+    return this.lobsterService.updateDepositPromoEvent(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('deposit-promo-events/:id')
+  deleteDepositPromoEvent(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteDepositPromoEvent(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('deposit-promo-tiers')
+  listDepositPromoTiers(@Query('event_id') eventId?: string) {
+    const id = eventId ? Number(eventId) : undefined;
+    return this.lobsterService.listDepositPromoTiers(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('deposit-promo-tiers/:id')
+  getDepositPromoTierById(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.getDepositPromoTierById(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Post('deposit-promo-tiers')
+  createDepositPromoTier(@Body() dto: CreateDepositPromoTierDto) {
+    return this.lobsterService.createDepositPromoTier(dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('deposit-promo-tiers/:id')
+  updateDepositPromoTier(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateDepositPromoTierDto,
+  ) {
+    return this.lobsterService.updateDepositPromoTier(id, dto);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('deposit-promo-tiers/:id')
+  deleteDepositPromoTier(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteDepositPromoTier(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('deposit-promo-participations')
+  adminListDepositPromoParticipations(
+    @Query() query: AdminListDepositPromoParticipationsDto,
+  ) {
+    return this.lobsterService.adminListDepositPromoParticipations(query);
   }
 }

@@ -51,6 +51,11 @@ import { AdminListReedemCodeHistoriesDto } from './dto/admin-list-reedem-code-hi
 import { CreateRakebackSettingDto } from './dto/create-rakeback-setting.dto';
 import { UpdateRakebackSettingDto } from './dto/update-rakeback-setting.dto';
 import { AdminListRakebackHistoriesDto } from './dto/admin-list-rakeback-histories.dto';
+import { CreateDepositPromoEventDto } from './dto/create-deposit-promo-event.dto';
+import { UpdateDepositPromoEventDto } from './dto/update-deposit-promo-event.dto';
+import { CreateDepositPromoTierDto } from './dto/create-deposit-promo-tier.dto';
+import { UpdateDepositPromoTierDto } from './dto/update-deposit-promo-tier.dto';
+import { AdminListDepositPromoParticipationsDto } from './dto/admin-list-deposit-promo-participations.dto';
 
 @Injectable()
 export class LobsterService {
@@ -1010,6 +1015,272 @@ export class LobsterService {
     }
     await this.prisma.promotion.delete({ where: { id } });
     return { deleted: true };
+  }
+
+  async listDepositPromoEvents() {
+    return this.prisma.depositPromoEvent.findMany({
+      orderBy: [{ is_active: 'desc' }, { start_date: 'desc' }, { created_at: 'desc' }],
+      include: {
+        tiers: {
+          orderBy: [{ sort_order: 'asc' }, { deposit_amount: 'asc' }],
+        },
+      },
+    });
+  }
+
+  async getDepositPromoEventById(id: number) {
+    const event = await this.prisma.depositPromoEvent.findUnique({
+      where: { id },
+      include: {
+        tiers: {
+          orderBy: [{ sort_order: 'asc' }, { deposit_amount: 'asc' }],
+        },
+      },
+    });
+    if (!event) {
+      throw new NotFoundException('deposit_promo_event_not_found');
+    }
+    return event;
+  }
+
+  async createDepositPromoEvent(dto: CreateDepositPromoEventDto) {
+    return this.prisma.depositPromoEvent.create({
+      data: {
+        name: dto.name,
+        start_date: new Date(dto.start_date),
+        end_date: new Date(dto.end_date),
+        is_active: dto.is_active ?? true,
+      },
+    });
+  }
+
+  async updateDepositPromoEvent(id: number, dto: UpdateDepositPromoEventDto) {
+    const exists = await this.prisma.depositPromoEvent.findUnique({
+      where: { id },
+    });
+    if (!exists) {
+      throw new NotFoundException('deposit_promo_event_not_found');
+    }
+    return this.prisma.depositPromoEvent.update({
+      where: { id },
+      data: {
+        name: dto.name ?? exists.name,
+        start_date: dto.start_date ? new Date(dto.start_date) : exists.start_date,
+        end_date: dto.end_date ? new Date(dto.end_date) : exists.end_date,
+        is_active: dto.is_active ?? exists.is_active,
+      },
+    });
+  }
+
+  async deleteDepositPromoEvent(id: number) {
+    const exists = await this.prisma.depositPromoEvent.findUnique({
+      where: { id },
+    });
+    if (!exists) {
+      throw new NotFoundException('deposit_promo_event_not_found');
+    }
+    await this.prisma.depositPromoEvent.delete({
+      where: { id },
+    });
+    return { deleted: true };
+  }
+
+  async listDepositPromoTiers(eventId?: number) {
+    const where: Prisma.DepositPromoTierWhereInput = {};
+    if (eventId) {
+      where.event_id = eventId;
+    }
+    return this.prisma.depositPromoTier.findMany({
+      where,
+      orderBy: [{ sort_order: 'asc' }, { deposit_amount: 'asc' }],
+      include: {
+        event: true,
+      },
+    });
+  }
+
+  async getDepositPromoTierById(id: number) {
+    const tier = await this.prisma.depositPromoTier.findUnique({
+      where: { id },
+      include: {
+        event: true,
+      },
+    });
+    if (!tier) {
+      throw new NotFoundException('deposit_promo_tier_not_found');
+    }
+    return tier;
+  }
+
+  async createDepositPromoTier(dto: CreateDepositPromoTierDto) {
+    const event = await this.prisma.depositPromoEvent.findUnique({
+      where: { id: dto.event_id },
+    });
+    if (!event) {
+      throw new NotFoundException('deposit_promo_event_not_found');
+    }
+    return this.prisma.depositPromoTier.create({
+      data: {
+        event_id: dto.event_id,
+        name: dto.name,
+        deposit_amount: dto.deposit_amount,
+        bonus_amount: dto.bonus_amount,
+        rollover_amount: dto.rollover_amount,
+        is_active: dto.is_active ?? true,
+        sort_order: dto.sort_order ?? 0,
+      },
+    });
+  }
+
+  async updateDepositPromoTier(id: number, dto: UpdateDepositPromoTierDto) {
+    const tier = await this.prisma.depositPromoTier.findUnique({
+      where: { id },
+    });
+    if (!tier) {
+      throw new NotFoundException('deposit_promo_tier_not_found');
+    }
+
+    let eventId = tier.event_id;
+    if (dto.event_id && dto.event_id !== tier.event_id) {
+      const event = await this.prisma.depositPromoEvent.findUnique({
+        where: { id: dto.event_id },
+      });
+      if (!event) {
+        throw new NotFoundException('deposit_promo_event_not_found');
+      }
+      eventId = dto.event_id;
+    }
+
+    return this.prisma.depositPromoTier.update({
+      where: { id },
+      data: {
+        event_id: eventId,
+        name: dto.name ?? tier.name,
+        deposit_amount:
+          dto.deposit_amount !== undefined ? dto.deposit_amount : tier.deposit_amount,
+        bonus_amount:
+          dto.bonus_amount !== undefined ? dto.bonus_amount : tier.bonus_amount,
+        rollover_amount:
+          dto.rollover_amount !== undefined
+            ? dto.rollover_amount
+            : tier.rollover_amount,
+        is_active: dto.is_active ?? tier.is_active,
+        sort_order: dto.sort_order ?? tier.sort_order,
+      },
+    });
+  }
+
+  async deleteDepositPromoTier(id: number) {
+    const tier = await this.prisma.depositPromoTier.findUnique({
+      where: { id },
+    });
+    if (!tier) {
+      throw new NotFoundException('deposit_promo_tier_not_found');
+    }
+    await this.prisma.depositPromoTier.delete({
+      where: { id },
+    });
+    return { deleted: true };
+  }
+
+  async adminListDepositPromoParticipations(
+    filters: AdminListDepositPromoParticipationsDto,
+  ) {
+    const rawPage = filters.page ?? 1;
+    const rawPageSize = filters.page_size ?? 20;
+    const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
+    const pageSize = Number(rawPageSize) > 0 ? Number(rawPageSize) : 20;
+    const skip = (page - 1) * pageSize;
+
+    const where: Prisma.DepositPromoParticipationWhereInput = {};
+
+    if (filters.tier_id) {
+      where.tier_id = filters.tier_id;
+    }
+
+    if (filters.event_id) {
+      where.tier = {
+        is: {
+          event_id: filters.event_id,
+        },
+      };
+    }
+
+    if (filters.promo_date_from || filters.promo_date_to) {
+      const promoDateFilter: Prisma.DateTimeFilter = {};
+      if (filters.promo_date_from) {
+        promoDateFilter.gte = new Date(filters.promo_date_from);
+      }
+      if (filters.promo_date_to) {
+        promoDateFilter.lte = new Date(filters.promo_date_to);
+      }
+      where.promo_date = promoDateFilter;
+    }
+
+    const userConditions: Prisma.UserWhereInput = {};
+    if (filters.user_pid) {
+      userConditions.pid = filters.user_pid;
+    }
+    if (filters.user_phone) {
+      userConditions.phone = filters.user_phone;
+    }
+    if (filters.user_document) {
+      userConditions.document = filters.user_document;
+    }
+
+    if (Object.keys(userConditions).length > 0) {
+      where.user = { is: userConditions };
+    }
+
+    const allowedOrderFields: (keyof Prisma.DepositPromoParticipationOrderByWithRelationInput)[] =
+      ['promo_date', 'id'];
+    const requestedField =
+      (filters.order_by as keyof Prisma.DepositPromoParticipationOrderByWithRelationInput) ??
+      'promo_date';
+    const orderByField = allowedOrderFields.includes(requestedField)
+      ? requestedField
+      : 'promo_date';
+    const orderDir = (filters.order_dir ?? 'desc') as Prisma.SortOrder;
+
+    const orderBy: Prisma.DepositPromoParticipationOrderByWithRelationInput = {
+      [orderByField]: orderDir,
+    };
+
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.depositPromoParticipation.findMany({
+        where,
+        orderBy,
+        skip,
+        take: pageSize,
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+            },
+          },
+          tier: {
+            include: {
+              event: true,
+            },
+          },
+          deposit: true,
+        },
+      }),
+      this.prisma.depositPromoParticipation.count({ where }),
+    ]);
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total,
+        total_pages: Math.ceil(total / pageSize),
+      },
+    };
   }
 
   async adminListDeposits(filters: AdminListDepositsDto) {
