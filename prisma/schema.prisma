@@ -42,36 +42,37 @@ model User {
   rollover_active     Boolean @default(false)
   rollover_multiplier Decimal @default(1.00) @db.Decimal(10, 2)
 
-  blogger                      Boolean              @default(false)
-  banned                       Boolean              @default(false)
-  status                       Boolean              @default(true)
-  created_at                   DateTime             @default(now())
-  updated_at                   DateTime             @updatedAt
+  blogger                      Boolean                     @default(false)
+  banned                       Boolean                     @default(false)
+  status                       Boolean                     @default(true)
+  created_at                   DateTime                    @default(now())
+  updated_at                   DateTime                    @updatedAt
   last_login_at                DateTime?
   banned_at                    DateTime?
-  jump_available               Boolean              @default(false)
-  jump_limit                   Int     @default(2)
-  jump_invite_count            Int     @default(0)
-  cpa_available                Boolean              @default(false)
-  min_deposit_for_cpa          Decimal @default(0.00) @db.Decimal(10, 2)
-  cpa_level_1                  Decimal @default(0.00) @db.Decimal(10, 2)
-  cpa_level_2                  Decimal @default(0.00) @db.Decimal(10, 2)
-  cpa_level_3                  Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_fake                Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_level_1             Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_level_2             Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_level_3             Decimal @default(0.00) @db.Decimal(10, 2)
-  fake_revshare                Boolean @default(false)
+  jump_available               Boolean                     @default(false)
+  jump_limit                   Int                         @default(2)
+  jump_invite_count            Int                         @default(0)
+  cpa_available                Boolean                     @default(false)
+  min_deposit_for_cpa          Decimal                     @default(0.00) @db.Decimal(10, 2)
+  cpa_level_1                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  cpa_level_2                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  cpa_level_3                  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  revshare_fake                Decimal                     @default(0.00) @db.Decimal(10, 2)
+  revshare_level_1             Decimal                     @default(0.00) @db.Decimal(10, 2)
+  revshare_level_2             Decimal                     @default(0.00) @db.Decimal(10, 2)
+  revshare_level_3             Decimal                     @default(0.00) @db.Decimal(10, 2)
+  fake_revshare                Boolean                     @default(false)
   vip_histories                VipHistory[]
   vip_bonus_redemptions        VipBonusRedemption[]
-  affiliate_histories          AffiliateHistory[]   @relation("AffiliateUser")
-  referred_affiliate_histories AffiliateHistory[]   @relation("AffiliateReferrer")
+  affiliate_histories          AffiliateHistory[]          @relation("AffiliateUser")
+  referred_affiliate_histories AffiliateHistory[]          @relation("AffiliateReferrer")
   chest_withdrawls             ChestWithdrawal[]
   deposits                     Deposit[]
   withdrawals                  Withdrawal[]
   level_promo_progresses       LevelPromoProgress[]
-  inviter                      User?                @relation("UserInviter", fields: [invited_by_user_id], references: [id])
-  invitees                     User[]               @relation("UserInviter")
+  deposit_promo_participations DepositPromoParticipation[]
+  inviter                      User?                       @relation("UserInviter", fields: [invited_by_user_id], references: [id])
+  invitees                     User[]                      @relation("UserInviter")
   game_transactions            GameTransaction[]
   reedem_code_histories        ReedemCodeHistory[]
   rakeback_histories           RakebackHistory[]
@@ -91,7 +92,7 @@ model Banner {
   image_url  String
   target_url String
   is_active  Boolean  @default(true)
-  sort_order Int       @default(0)
+  sort_order Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -104,7 +105,7 @@ model SubBanner {
   image_url  String
   target_url String
   is_active  Boolean  @default(true)
-  sort_order Int       @default(0)
+  sort_order Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -117,7 +118,7 @@ model PopupBanner {
   image_url  String
   target_url String
   is_active  Boolean  @default(true)
-  sort_order Int       @default(0)
+  sort_order Int      @default(0)
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -130,7 +131,7 @@ model PopupIcon {
   image_url  String
   target_url String
   is_active  Boolean  @default(true)
-  direction String    @default("right")
+  direction  String   @default("right")
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
@@ -138,28 +139,27 @@ model PopupIcon {
 }
 
 model Setting {
-  id         Int      @id @default(autoincrement())
-  sys_name       String
-  sys_favicon    String
-  sys_logo       String
-  sys_description String?
-  sys_marquee String?
-  sys_support_telegram String?
-  sys_support_whatsapp String?
-  sys_support_email String?
-  min_deposit      Decimal           @default(5.00) @db.Decimal(10, 2)
-  max_deposit      Decimal           @default(5000.00) @db.Decimal(10, 2)
-  min_withdrawal   Decimal           @default(5.00) @db.Decimal(10, 2)
-  max_withdrawal   Decimal           @default(5000.00) @db.Decimal(10, 2)
-  auto_withdrawal  Boolean           @default(true)
-  auto_withdrawal_limit Decimal           @default(5000.00) @db.Decimal(10, 2)
-  
+  id                    Int     @id @default(autoincrement())
+  sys_name              String
+  sys_favicon           String
+  sys_logo              String
+  sys_description       String?
+  sys_marquee           String?
+  sys_support_telegram  String?
+  sys_support_whatsapp  String?
+  sys_support_email     String?
+  min_deposit           Decimal @default(5.00) @db.Decimal(10, 2)
+  max_deposit           Decimal @default(5000.00) @db.Decimal(10, 2)
+  min_withdrawal        Decimal @default(5.00) @db.Decimal(10, 2)
+  max_withdrawal        Decimal @default(5000.00) @db.Decimal(10, 2)
+  auto_withdrawal       Boolean @default(true)
+  auto_withdrawal_limit Decimal @default(5000.00) @db.Decimal(10, 2)
+
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
   @@map("settings")
 }
-
 
 model Category {
   id         Int      @id @default(autoincrement())
@@ -174,50 +174,50 @@ model Category {
 }
 
 model Game {
-  id                    Int       @id @default(autoincrement())
-  
-  name                  String
-  game_code             String
-  game_id               String?
-  image                 String?
-  description           String?   @db.Text
+  id Int @id @default(autoincrement())
 
-  categories            Category[]
-  
-  game_type             GameType?
-  currency              String? @default("BRL")
-  rtp                   Decimal?  @db.Decimal(5, 2)
-    
-  status                String    @default("active")
-  distribution          String?
-  is_hot                Boolean   @default(false)
-  is_active             Boolean   @default(true)
-  show_in_home          Boolean   @default(true)
-  
-  views                 Int       @default(0)
-  
-  created_at            DateTime  @default(now())
-  updated_at            DateTime  @updatedAt
+  name        String
+  game_code   String
+  game_id     String?
+  image       String?
+  description String? @db.Text
+
+  categories Category[]
+
+  game_type GameType?
+  currency  String?   @default("BRL")
+  rtp       Decimal?  @db.Decimal(5, 2)
+
+  status       String  @default("active")
+  distribution String?
+  is_hot       Boolean @default(false)
+  is_active    Boolean @default(true)
+  show_in_home Boolean @default(true)
+
+  views Int @default(0)
+
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("games")
 }
 
 model GameTransaction {
-  id                       Int      @id @default(autoincrement())
-  user_id                  Int
-  action                   String
-  provider                 String
-  player_id                Int
-  session_id               String?
-  provider_transaction_id  String?
-  internal_transaction_id  String?
-  game_uuid                String?
-  round_id                 String?
-  amount                   Decimal? @db.Decimal(10, 2)
-  currency                 String?  @default("BRL")
-  raw_request              Json?
-  created_at               DateTime @default(now())
-  user                     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id                      Int      @id @default(autoincrement())
+  user_id                 Int
+  action                  String
+  provider                String
+  player_id               Int
+  session_id              String?
+  provider_transaction_id String?
+  internal_transaction_id String?
+  game_uuid               String?
+  round_id                String?
+  amount                  Decimal? @db.Decimal(10, 2)
+  currency                String?  @default("BRL")
+  raw_request             Json?
+  created_at              DateTime @default(now())
+  user                    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, created_at])
   @@index([player_id, created_at])
@@ -261,6 +261,54 @@ model ChestWithdrawal {
   @@map("chest_withdrawls")
 }
 
+model DepositPromoEvent {
+  id         Int                @id @default(autoincrement())
+  name       String
+  start_date DateTime
+  end_date   DateTime
+  is_active  Boolean            @default(true)
+  created_at DateTime           @default(now())
+  updated_at DateTime           @updatedAt
+  tiers      DepositPromoTier[]
+
+  @@map("deposit_promo_events")
+}
+
+model DepositPromoTier {
+  id              Int                         @id @default(autoincrement())
+  event_id        Int
+  name            String
+  deposit_amount  Decimal                     @default(0.00) @db.Decimal(10, 2)
+  bonus_amount    Decimal                     @default(0.00) @db.Decimal(10, 2)
+  rollover_amount Decimal                     @default(0.00) @db.Decimal(10, 2)
+  is_active       Boolean                     @default(true)
+  sort_order      Int                         @default(0)
+  created_at      DateTime                    @default(now())
+  updated_at      DateTime                    @updatedAt
+  participations  DepositPromoParticipation[]
+  event           DepositPromoEvent           @relation(fields: [event_id], references: [id], onDelete: Cascade)
+
+  @@index([event_id])
+  @@map("deposit_promo_tiers")
+}
+
+model DepositPromoParticipation {
+  id         Int              @id @default(autoincrement())
+  user_id    Int
+  tier_id    Int
+  deposit_id Int
+  promo_date DateTime
+  created_at DateTime         @default(now())
+  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  tier       DepositPromoTier @relation(fields: [tier_id], references: [id], onDelete: Cascade)
+  deposit    Deposit          @relation(fields: [deposit_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, promo_date])
+  @@index([tier_id])
+  @@index([deposit_id])
+  @@map("deposit_promo_participations")
+}
+
 model Mensage {
   id         Int      @id @default(autoincrement())
   title      String
@@ -273,29 +321,29 @@ model Mensage {
 }
 
 model ReedemCode {
-  id              Int      @id @default(autoincrement())
-  code            String   @unique
-  max_collect     Int      @default(0)
-  collected_count Int      @default(0)
-  bonus           Decimal?  @default(0.00) @db.Decimal(10, 2)
-  free_spins      Int?      @default(0)
-  is_active       Boolean  @default(true)
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id                    Int                 @id @default(autoincrement())
+  code                  String              @unique
+  max_collect           Int                 @default(0)
+  collected_count       Int                 @default(0)
+  bonus                 Decimal?            @default(0.00) @db.Decimal(10, 2)
+  free_spins            Int?                @default(0)
+  is_active             Boolean             @default(true)
+  created_at            DateTime            @default(now())
+  updated_at            DateTime            @updatedAt
   reedem_code_histories ReedemCodeHistory[]
 
   @@map("reedem_codes")
 }
 
 model ReedemCodeHistory {
-  id              Int      @id @default(autoincrement())
-  reedem_code_id  Int
-  user_id         Int
-  collected_at    DateTime @default(now())
-  bonus           Decimal?  @default(0.00) @db.Decimal(10, 2)
-  free_spins      Int?      @default(0)
-  user            User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  reedem_code     ReedemCode @relation(fields: [reedem_code_id], references: [id])
+  id             Int        @id @default(autoincrement())
+  reedem_code_id Int
+  user_id        Int
+  collected_at   DateTime   @default(now())
+  bonus          Decimal?   @default(0.00) @db.Decimal(10, 2)
+  free_spins     Int?       @default(0)
+  user           User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  reedem_code    ReedemCode @relation(fields: [reedem_code_id], references: [id])
 
   @@index([reedem_code_id, user_id])
   @@map("reedem_code_histories")
@@ -372,37 +420,38 @@ model VipBonusRedemption {
 }
 
 model Deposit {
-  id         Int      @id @default(autoincrement())
-  user_id    Int
-  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
-  status     String   @default("PENDING")
-  request_number String?
-  reference  String?
-  paid_at    DateTime?
-  updated_at DateTime @updatedAt
-  created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  id                           Int                         @id @default(autoincrement())
+  user_id                      Int
+  amount                       Decimal                     @default(0.00) @db.Decimal(10, 2)
+  status                       String                      @default("PENDING")
+  request_number               String?
+  reference                    String?
+  paid_at                      DateTime?
+  updated_at                   DateTime                    @updatedAt
+  created_at                   DateTime                    @default(now())
+  user                         User                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  deposit_promo_participations DepositPromoParticipation[]
 
   @@index([user_id, created_at, status, reference])
   @@map("deposits")
 }
 
 model Withdrawal {
-  id         Int      @id @default(autoincrement())
-  user_id    Int
-  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
-  status     String   @default("PENDING")
+  id             Int       @id @default(autoincrement())
+  user_id        Int
+  amount         Decimal   @default(0.00) @db.Decimal(10, 2)
+  status         String    @default("PENDING")
   request_number String?
   user_name      String?
   user_document  String?
   user_keypix    String?
   user_keytype   String?
   reason         String?
-  reference  String?
-  paid_at    DateTime?
-  updated_at DateTime @updatedAt
-  created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  reference      String?
+  paid_at        DateTime?
+  updated_at     DateTime  @updatedAt
+  created_at     DateTime  @default(now())
+  user           User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, created_at, status, reference])
   @@map("withdrawals")
@@ -491,12 +540,12 @@ model AffiliateHistory {
 
 // Gateway Payments Credentials
 model PradaPayment {
-  id            Int      @id @default(autoincrement())
-  base_url      String   @default("https://api.pradapay.com")
-  api_key       String
-  active        Boolean  @default(true)
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  id         Int      @id @default(autoincrement())
+  base_url   String   @default("https://api.pradapay.com")
+  api_key    String
+  active     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
   @@map("prada_payments")
 }
