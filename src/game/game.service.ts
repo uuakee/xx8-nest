@@ -156,7 +156,10 @@ export class GameService {
     return this.pokerError('INVALID_ACTION', 'Unsupported action');
   }
 
-  async handleCloneWebhook(body: any) {
+  async handleCloneWebhook(
+    body: any,
+    providerHint?: 'pp-clone' | 'pg-clone',
+  ) {
     const method = body?.method;
     const agentCode = body?.agent_code;
     const agentSecret = body?.agent_secret ?? body?.agent_token;
@@ -184,7 +187,10 @@ export class GameService {
       )}`,
     );
 
-    if (!agentCode || typeof agentCode !== 'string') {
+    const hasAgentCode =
+      typeof agentCode === 'string' && agentCode.trim().length > 0;
+
+    if (!hasAgentCode && !providerHint) {
       return { status: 0, message: 'invalid_agent' };
     }
 
@@ -195,11 +201,22 @@ export class GameService {
 
     let provider: 'pp-clone' | 'pg-clone' | null = null;
 
-    if (ppConfig && ppConfig.agent_code === agentCode) {
+    if (ppConfig && hasAgentCode && ppConfig.agent_code === agentCode) {
       provider = 'pp-clone';
     } else if (
       pgConfig &&
+      hasAgentCode &&
       pgConfig.agent_code === agentCode &&
+      (!hasSecret || pgConfig.agent_secret === agentSecret)
+    ) {
+      provider = 'pg-clone';
+    }
+
+    if (
+      !provider &&
+      providerHint === 'pg-clone' &&
+      pgConfig &&
+      (!hasAgentCode || pgConfig.agent_code === agentCode) &&
       (!hasSecret || pgConfig.agent_secret === agentSecret)
     ) {
       provider = 'pg-clone';
@@ -231,11 +248,12 @@ export class GameService {
     }
 
     if (provider === 'pg-clone') {
-      if (method === 'money_callback' || method === 'transaction') {
+      if (
+        method === 'money_callback' ||
+        method === 'transaction' ||
+        method === 'game_callback'
+      ) {
         return this.handleCloneTransaction(body, provider);
-      }
-      if (method === 'game_callback') {
-        return { status: 1 };
       }
       this.logger.warn(
         `handleCloneWebhook: unsupported_method_pg_clone=${method}`,
@@ -357,8 +375,10 @@ export class GameService {
 
     const txnIdRaw = section?.txn_id;
     const gameCodeRaw = section?.game_code;
-    const betMoneyRaw = section?.bet_money;
-    const winMoneyRaw = section?.win_money;
+    const betMoneyRaw =
+      section?.bet_money !== undefined ? section?.bet_money : section?.bet;
+    const winMoneyRaw =
+      section?.win_money !== undefined ? section?.win_money : section?.win;
 
     const txnId =
       typeof txnIdRaw === 'string' && txnIdRaw

@@ -36,11 +36,11 @@ export class AppController {
 
   @Post('webhook/ppclone')
   ppCloneWebhook(@Body() body: any) {
-    return this.gameService.handleCloneWebhook(body);
+    return this.gameService.handleCloneWebhook(body, 'pp-clone');
   }
 
   @Post('webhook/pgclone')
   pgCloneWebhook(@Body() body: any) {
-    return this.gameService.handleCloneWebhook(body);
+    return this.gameService.handleCloneWebhook(body, 'pg-clone');
   }
 }
