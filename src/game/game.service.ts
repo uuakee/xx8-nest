@@ -160,6 +160,7 @@ export class GameService {
     body: any,
     providerHint?: 'pp-clone' | 'pg-clone',
   ) {
+    const tsStart = new Date().toISOString();
     const method = body?.method;
     const agentCode = body?.agent_code;
     const agentSecret = body?.agent_secret ?? body?.agent_token;
@@ -182,7 +183,7 @@ export class GameService {
     }
 
     this.logger.log(
-      `handleCloneWebhook: received method=${method} agent_code=${agentCode} user_code=${body?.user_code} has_agent_secret_field=${hasAgentSecretField} has_agent_token_field=${hasAgentTokenField} body=${JSON.stringify(
+      `handleCloneWebhook: ts=${tsStart} providerHint=${providerHint} method=${method} agent_code=${agentCode} user_code=${body?.user_code} has_agent_secret_field=${hasAgentSecretField} has_agent_token_field=${hasAgentTokenField} body=${JSON.stringify(
         safeBody,
       )}`,
     );
@@ -191,6 +192,10 @@ export class GameService {
       typeof agentCode === 'string' && agentCode.trim().length > 0;
 
     if (!hasAgentCode && !providerHint) {
+      const tsInvalidAgent = new Date().toISOString();
+      this.logger.warn(
+        `handleCloneWebhook: ts=${tsInvalidAgent} status=invalid_agent`,
+      );
       return { status: 0, message: 'invalid_agent' };
     }
 
@@ -224,25 +229,40 @@ export class GameService {
 
     if (!provider) {
       this.logger.warn(
-        `handleCloneWebhook: unknown_agent agent_code=${agentCode}`,
+        `handleCloneWebhook: ts=${new Date().toISOString()} status=unknown_agent agent_code=${agentCode}`,
       );
       return { status: 0, message: 'unknown_agent' };
     }
 
     if (!method || typeof method !== 'string') {
+      this.logger.warn(
+        `handleCloneWebhook: ts=${new Date().toISOString()} status=invalid_method`,
+      );
       return { status: 0, message: 'invalid_method' };
     }
 
     if (method === 'user_balance') {
-      return this.handleCloneUserBalance(body);
+      const result = await this.handleCloneUserBalance(body);
+      this.logger.log(
+        `handleCloneWebhook: ts=${new Date().toISOString()} status=user_balance_completed user_code=${body?.user_code} result=${JSON.stringify(
+          result,
+        )}`,
+      );
+      return result;
     }
 
     if (provider === 'pp-clone') {
       if (method === 'transaction') {
-        return this.handleCloneTransaction(body, provider);
+        const result = await this.handleCloneTransaction(body, provider);
+        this.logger.log(
+          `handleCloneWebhook: ts=${new Date().toISOString()} status=pp_clone_transaction_completed user_code=${body?.user_code} result=${JSON.stringify(
+            result,
+          )}`,
+        );
+        return result;
       }
       this.logger.warn(
-        `handleCloneWebhook: unsupported_method_pp_clone=${method}`,
+        `handleCloneWebhook: ts=${new Date().toISOString()} status=unsupported_method_pp_clone method=${method}`,
       );
       return { status: 0, message: 'unsupported_method' };
     }
@@ -253,16 +273,22 @@ export class GameService {
         method === 'transaction' ||
         method === 'game_callback'
       ) {
-        return this.handleCloneTransaction(body, provider);
+        const result = await this.handleCloneTransaction(body, provider);
+        this.logger.log(
+          `handleCloneWebhook: ts=${new Date().toISOString()} status=pg_clone_transaction_completed method=${method} user_code=${body?.user_code} result=${JSON.stringify(
+            result,
+          )}`,
+        );
+        return result;
       }
       this.logger.warn(
-        `handleCloneWebhook: unsupported_method_pg_clone=${method}`,
+        `handleCloneWebhook: ts=${new Date().toISOString()} status=unsupported_method_pg_clone method=${method}`,
       );
       return { status: 0, message: 'unsupported_method' };
     }
 
     this.logger.warn(
-      `handleCloneWebhook: unsupported_provider provider=${provider} method=${method}`,
+      `handleCloneWebhook: ts=${new Date().toISOString()} status=unsupported_provider provider=${provider} method=${method}`,
     );
     return { status: 0, message: 'unsupported_provider' };
   }
@@ -301,11 +327,17 @@ export class GameService {
 
   private async handleCloneUserBalance(body: any) {
     const userCode = body?.user_code;
+    const tsStart = new Date().toISOString();
+    this.logger.log(
+      `handleCloneUserBalance: ts=${tsStart} user_code=${userCode} body=${JSON.stringify(
+        body,
+      )}`,
+    );
 
     const userId = Number(userCode);
     if (!Number.isFinite(userId) || userId <= 0) {
       this.logger.warn(
-        `handleCloneUserBalance: invalid_user_code user_code=${userCode}`,
+        `handleCloneUserBalance: ts=${new Date().toISOString()} status=invalid_user_code user_code=${userCode}`,
       );
       return { status: 0, user_balance: 0 };
     }
@@ -321,7 +353,7 @@ export class GameService {
 
       if (!user) {
         this.logger.warn(
-          `handleCloneUserBalance: user_not_found user_code=${userCode}`,
+          `handleCloneUserBalance: ts=${new Date().toISOString()} status=user_not_found user_code=${userCode}`,
         );
         return { status: 0, user_balance: 0 };
       }
@@ -330,7 +362,7 @@ export class GameService {
 
       if (mainBalance <= 0) {
         this.logger.log(
-          `handleCloneUserBalance: insufficient_funds userId=${user.id} balance=${mainBalance}`,
+          `handleCloneUserBalance: ts=${new Date().toISOString()} status=insufficient_funds userId=${user.id} balance=${mainBalance}`,
         );
         return {
           status: 0,
@@ -340,7 +372,7 @@ export class GameService {
       }
 
       this.logger.log(
-        `handleCloneUserBalance: ok userId=${user.id} balance=${mainBalance}`,
+        `handleCloneUserBalance: ts=${new Date().toISOString()} status=ok userId=${user.id} balance=${mainBalance}`,
       );
 
       return {
@@ -349,7 +381,7 @@ export class GameService {
       };
     } catch (err) {
       this.logger.error(
-        `handleCloneUserBalance: internal_error user_code=${userCode} err=${(err as Error).message}`,
+        `handleCloneUserBalance: ts=${new Date().toISOString()} status=internal_error user_code=${userCode} err=${(err as Error).message}`,
       );
       return { status: 0, user_balance: 0 };
     }
@@ -360,6 +392,12 @@ export class GameService {
     provider: 'pp-clone' | 'pg-clone',
   ) {
     const userCode = body?.user_code;
+    const tsStart = new Date().toISOString();
+    this.logger.log(
+      `handleCloneTransaction: ts=${tsStart} provider=${provider} user_code=${userCode} body=${JSON.stringify(
+        body,
+      )}`,
+    );
     const userId = Number(userCode);
 
     if (!Number.isFinite(userId) || userId <= 0) {
