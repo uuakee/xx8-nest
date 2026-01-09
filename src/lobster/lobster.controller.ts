@@ -164,6 +164,12 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('games/:id')
+  deleteGame(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.deleteGame(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Get('prada-payment')
   getPradaPayment() {
     return this.lobsterService.getPradaPayment();

@@ -698,6 +698,12 @@ export class LobsterService {
     });
   }
 
+  async deleteGame(id: number) {
+    await this.ensureGameExists(id);
+    await this.prisma.game.delete({ where: { id } });
+    return { deleted: true };
+  }
+
   async listBanners() {
     return this.prisma.banner.findMany({
       orderBy: [{ sort_order: 'asc' }, { created_at: 'desc' }],
