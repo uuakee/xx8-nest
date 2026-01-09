@@ -2340,4 +2340,269 @@ export class LobsterService {
       throw new NotFoundException('game_not_found');
     }
   }
+
+  async getDashboard() {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOf7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const startOf30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Deposits stats
+    const [
+      depositsToday,
+      deposits7d,
+      deposits30d,
+    ] = await Promise.all([
+      this.prisma.deposit.aggregate({
+        where: {
+          status: 'PAID',
+          created_at: { gte: startOfToday },
+        },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.deposit.aggregate({
+        where: {
+          status: 'PAID',
+          created_at: { gte: startOf7Days },
+        },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.deposit.aggregate({
+        where: {
+          status: 'PAID',
+          created_at: { gte: startOf30Days },
+        },
+        _count: true,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    // Withdrawals stats
+    const [
+      withdrawalsToday,
+      withdrawals7d,
+      withdrawals30d,
+    ] = await Promise.all([
+      this.prisma.withdrawal.aggregate({
+        where: {
+          status: 'PAID',
+          created_at: { gte: startOfToday },
+        },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.withdrawal.aggregate({
+        where: {
+          status: 'PAID',
+          created_at: { gte: startOf7Days },
+        },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.withdrawal.aggregate({
+        where: {
+          status: 'PAID',
+          created_at: { gte: startOf30Days },
+        },
+        _count: true,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    // Users stats
+    const [
+      usersToday,
+      users7d,
+      users30d,
+      totalUsers,
+    ] = await Promise.all([
+      this.prisma.user.count({
+        where: { created_at: { gte: startOfToday } },
+      }),
+      this.prisma.user.count({
+        where: { created_at: { gte: startOf7Days } },
+      }),
+      this.prisma.user.count({
+        where: { created_at: { gte: startOf30Days } },
+      }),
+      this.prisma.user.count(),
+    ]);
+
+    // Games stats
+    const [
+      totalGames,
+      activeGames,
+      hotGames,
+      gamesViews,
+    ] = await Promise.all([
+      this.prisma.game.count(),
+      this.prisma.game.count({ where: { is_active: true } }),
+      this.prisma.game.count({ where: { is_hot: true, is_active: true } }),
+      this.prisma.game.aggregate({ _sum: { views: true } }),
+    ]);
+
+    // VIP stats
+    const [
+      totalVipUsers,
+      vipBonusesToday,
+      vipBonuses7d,
+      vipBonuses30d,
+      vipUsersByLevel,
+    ] = await Promise.all([
+      this.prisma.user.count({ where: { vip: { gt: 0 } } }),
+      this.prisma.vipHistory.aggregate({
+        where: { created_at: { gte: startOfToday } },
+        _count: true,
+        _sum: { bonus: true },
+      }),
+      this.prisma.vipHistory.aggregate({
+        where: { created_at: { gte: startOf7Days } },
+        _count: true,
+        _sum: { bonus: true },
+      }),
+      this.prisma.vipHistory.aggregate({
+        where: { created_at: { gte: startOf30Days } },
+        _count: true,
+        _sum: { bonus: true },
+      }),
+      this.prisma.user.groupBy({
+        by: ['vip'],
+        where: { vip: { gt: 0 } },
+        _count: true,
+      }),
+    ]);
+
+    // Rakeback stats
+    const [
+      rakebackTotal,
+      rakebackPending,
+      rakebackRedeemed,
+      rakebackToday,
+      rakeback7d,
+      rakeback30d,
+    ] = await Promise.all([
+      this.prisma.rakebackHistory.aggregate({
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.rakebackHistory.aggregate({
+        where: { redeemed: false },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.rakebackHistory.aggregate({
+        where: { redeemed: true },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.rakebackHistory.aggregate({
+        where: { created_at: { gte: startOfToday } },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.rakebackHistory.aggregate({
+        where: { created_at: { gte: startOf7Days } },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.rakebackHistory.aggregate({
+        where: { created_at: { gte: startOf30Days } },
+        _count: true,
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      deposits: {
+        today: {
+          count: depositsToday._count,
+          amount: depositsToday._sum.amount ?? 0,
+        },
+        last_7_days: {
+          count: deposits7d._count,
+          amount: deposits7d._sum.amount ?? 0,
+        },
+        last_30_days: {
+          count: deposits30d._count,
+          amount: deposits30d._sum.amount ?? 0,
+        },
+      },
+      withdrawals: {
+        today: {
+          count: withdrawalsToday._count,
+          amount: withdrawalsToday._sum.amount ?? 0,
+        },
+        last_7_days: {
+          count: withdrawals7d._count,
+          amount: withdrawals7d._sum.amount ?? 0,
+        },
+        last_30_days: {
+          count: withdrawals30d._count,
+          amount: withdrawals30d._sum.amount ?? 0,
+        },
+      },
+      users: {
+        total: totalUsers,
+        today: usersToday,
+        last_7_days: users7d,
+        last_30_days: users30d,
+      },
+      games: {
+        total: totalGames,
+        active: activeGames,
+        hot: hotGames,
+        total_views: gamesViews._sum.views ?? 0,
+      },
+      vip: {
+        total_vip_users: totalVipUsers,
+        users_by_level: vipUsersByLevel.map((item) => ({
+          level: item.vip,
+          count: item._count,
+        })),
+        bonuses: {
+          today: {
+            count: vipBonusesToday._count,
+            amount: vipBonusesToday._sum.bonus ?? 0,
+          },
+          last_7_days: {
+            count: vipBonuses7d._count,
+            amount: vipBonuses7d._sum.bonus ?? 0,
+          },
+          last_30_days: {
+            count: vipBonuses30d._count,
+            amount: vipBonuses30d._sum.bonus ?? 0,
+          },
+        },
+      },
+      rakeback: {
+        total: {
+          count: rakebackTotal._count,
+          amount: rakebackTotal._sum.amount ?? 0,
+        },
+        pending: {
+          count: rakebackPending._count,
+          amount: rakebackPending._sum.amount ?? 0,
+        },
+        redeemed: {
+          count: rakebackRedeemed._count,
+          amount: rakebackRedeemed._sum.amount ?? 0,
+        },
+        today: {
+          count: rakebackToday._count,
+          amount: rakebackToday._sum.amount ?? 0,
+        },
+        last_7_days: {
+          count: rakeback7d._count,
+          amount: rakeback7d._sum.amount ?? 0,
+        },
+        last_30_days: {
+          count: rakeback30d._count,
+          amount: rakeback30d._sum.amount ?? 0,
+        },
+      },
+      generated_at: now.toISOString(),
+    };
+  }
 }

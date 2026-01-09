@@ -77,6 +77,12 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Get('dashboard')
+  getDashboard() {
+    return this.lobsterService.getDashboard();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Get('categories')
   listCategories() {
     return this.lobsterService.listCategories();
