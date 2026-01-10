@@ -34,7 +34,11 @@ export class SyscomService {
       orderBy: { created_at: 'desc' },
       include: {
         _count: {
-          select: { games: true },
+          select: {
+            games: {
+              where: { is_active: true },
+            },
+          },
         },
         games: {
           where: { is_active: true },
