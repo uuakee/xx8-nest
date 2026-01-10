@@ -25,4 +25,3 @@ export class UpdateChestDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

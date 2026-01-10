@@ -1,4 +1,11 @@
-import { IsBoolean, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreateRakebackSettingDto {
   @IsString()
@@ -21,4 +28,3 @@ export class CreateRakebackSettingDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

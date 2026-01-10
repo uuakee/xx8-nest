@@ -156,10 +156,7 @@ export class GameService {
     return this.pokerError('INVALID_ACTION', 'Unsupported action');
   }
 
-  async handleCloneWebhook(
-    body: any,
-    providerHint?: 'pp-clone' | 'pg-clone',
-  ) {
+  async handleCloneWebhook(body: any, providerHint?: 'pp-clone' | 'pg-clone') {
     const tsStart = new Date().toISOString();
     const method = body?.method;
     const agentCode = body?.agent_code;

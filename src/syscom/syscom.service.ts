@@ -5,6 +5,17 @@ import { PrismaService } from '../prisma/prisma.service';
 export class SyscomService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private shuffleArray<T>(items: T[]): T[] {
+    const result = [...items];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const temp = result[i];
+      result[i] = result[j];
+      result[j] = temp;
+    }
+    return result;
+  }
+
   listCategories() {
     return this.prisma.category.findMany({
       where: { is_active: true },
@@ -27,8 +38,6 @@ export class SyscomService {
         },
         games: {
           where: { is_active: true },
-          take: 12,
-          orderBy: { created_at: 'desc' },
           select: {
             id: true,
             name: true,
@@ -37,18 +46,31 @@ export class SyscomService {
             distribution: true,
             currency: true,
             game_type: true,
+            show_in_home: true,
           },
         },
       },
     });
 
-    return categories.map((category) => ({
-      id: category.id,
-      name: category.name,
-      image: category.image,
-      games_count: category._count.games,
-      games: category.games,
-    }));
+    return categories.map((category) => {
+      const hotGames = category.games.filter((game) => game.show_in_home);
+      const otherGames = category.games.filter((game) => !game.show_in_home);
+
+      const ordered = [
+        ...this.shuffleArray(hotGames),
+        ...this.shuffleArray(otherGames),
+      ].slice(0, 12);
+
+      const games = ordered.map(({ show_in_home, ...rest }) => rest);
+
+      return {
+        id: category.id,
+        name: category.name,
+        image: category.image,
+        games_count: category._count.games,
+        games,
+      };
+    });
   }
 
   listMessages() {

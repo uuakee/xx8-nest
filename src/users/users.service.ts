@@ -669,12 +669,9 @@ export class UsersService {
       }
 
       if (selectedSetting) {
-        const percentageNumber = Number(
-          selectedSetting.percentage.toString(),
-        );
+        const percentageNumber = Number(selectedSetting.percentage.toString());
         if (Number.isFinite(percentageNumber) && percentageNumber > 0) {
-          expectedNextRakeback =
-            (totalVolumeToday * percentageNumber) / 100;
+          expectedNextRakeback = (totalVolumeToday * percentageNumber) / 100;
         }
       }
     }
@@ -732,9 +729,7 @@ export class UsersService {
 
       let totalAmount = 0;
       for (const history of pendingHistories) {
-        totalAmount += this.getDecimalNumber(
-          history.amount as Prisma.Decimal,
-        );
+        totalAmount += this.getDecimalNumber(history.amount);
       }
 
       if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
@@ -939,19 +934,18 @@ export class UsersService {
       affiliateHistoryDateFilter.gte = last15Start;
     }
 
-    const histories =
-      await this.prisma.affiliateHistory.findMany({
-        where: {
-          affiliate_user_id: user.id,
-          created_at: affiliateHistoryDateFilter,
-        },
-        select: {
-          amount: true,
-          cpa_level: true,
-          revshare_level: true,
-          created_at: true,
-        },
-      });
+    const histories = await this.prisma.affiliateHistory.findMany({
+      where: {
+        affiliate_user_id: user.id,
+        created_at: affiliateHistoryDateFilter,
+      },
+      select: {
+        amount: true,
+        cpa_level: true,
+        revshare_level: true,
+        created_at: true,
+      },
+    });
 
     const commission = {
       today: {
@@ -975,9 +969,7 @@ export class UsersService {
     for (const row of histories) {
       const amountNumber = this.getDecimalNumber(row.amount);
       const level =
-        row.cpa_level && row.cpa_level > 0
-          ? row.cpa_level
-          : row.revshare_level;
+        row.cpa_level && row.cpa_level > 0 ? row.cpa_level : row.revshare_level;
       const isDirect = level === 1;
       const isIndirect = level && level > 1;
 
@@ -1070,11 +1062,7 @@ export class UsersService {
       for (const row of depositsAgg) {
         const sum = row._sum.amount;
         const value =
-          typeof sum === 'number'
-            ? sum
-            : sum
-              ? Number(sum.toString())
-              : 0;
+          typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
         depositMap.set(row.user_id, value);
       }
 
@@ -1092,11 +1080,7 @@ export class UsersService {
       for (const row of betsAgg) {
         const sum = row._sum.amount;
         const value =
-          typeof sum === 'number'
-            ? sum
-            : sum
-              ? Number(sum.toString())
-              : 0;
+          typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
         betMap.set(row.user_id, value);
       }
     }
@@ -1125,18 +1109,12 @@ export class UsersService {
       }
     }
 
-    const minDepositForCpa = this.getDecimalNumber(
-      user.min_deposit_for_cpa as Prisma.Decimal,
-    );
+    const minDepositForCpa = this.getDecimalNumber(user.min_deposit_for_cpa);
 
     const chestSummaries = chests.map((chest) => {
       const needReferral = chest.need_referral;
-      const chestNeedDeposit = this.getDecimalNumber(
-        chest.need_deposit as Prisma.Decimal,
-      );
-      const chestNeedBet = this.getDecimalNumber(
-        chest.need_bet as Prisma.Decimal,
-      );
+      const chestNeedDeposit = this.getDecimalNumber(chest.need_deposit);
+      const chestNeedBet = this.getDecimalNumber(chest.need_bet);
 
       const effectiveDepositThreshold = Math.max(
         minDepositForCpa,
@@ -1177,18 +1155,14 @@ export class UsersService {
 
     const minimalDepositThreshold = chestSummaries.length
       ? chestSummaries.reduce((min, chest) => {
-          const value = this.getDecimalNumber(
-            chest.need_deposit as Prisma.Decimal,
-          );
+          const value = this.getDecimalNumber(chest.need_deposit);
           return Math.min(min, value);
         }, Number.POSITIVE_INFINITY)
       : 0;
 
     const minimalBetThreshold = chestSummaries.length
       ? chestSummaries.reduce((min, chest) => {
-          const value = this.getDecimalNumber(
-            chest.need_bet as Prisma.Decimal,
-          );
+          const value = this.getDecimalNumber(chest.need_bet);
           return Math.min(min, value);
         }, Number.POSITIVE_INFINITY)
       : 0;
@@ -1271,11 +1245,7 @@ export class UsersService {
       for (const row of depositsAgg) {
         const sum = row._sum.amount;
         const value =
-          typeof sum === 'number'
-            ? sum
-            : sum
-              ? Number(sum.toString())
-              : 0;
+          typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
         depositMap.set(row.user_id, value);
       }
 
@@ -1293,23 +1263,13 @@ export class UsersService {
       for (const row of betsAgg) {
         const sum = row._sum.amount;
         const value =
-          typeof sum === 'number'
-            ? sum
-            : sum
-              ? Number(sum.toString())
-              : 0;
+          typeof sum === 'number' ? sum : sum ? Number(sum.toString()) : 0;
         betMap.set(row.user_id, value);
       }
 
-      const minDepositForCpa = this.getDecimalNumber(
-        user.min_deposit_for_cpa as Prisma.Decimal,
-      );
-      const chestNeedDeposit = this.getDecimalNumber(
-        chest.need_deposit as Prisma.Decimal,
-      );
-      const chestNeedBet = this.getDecimalNumber(
-        chest.need_bet as Prisma.Decimal,
-      );
+      const minDepositForCpa = this.getDecimalNumber(user.min_deposit_for_cpa);
+      const chestNeedDeposit = this.getDecimalNumber(chest.need_deposit);
+      const chestNeedBet = this.getDecimalNumber(chest.need_bet);
 
       const effectiveDepositThreshold = Math.max(
         minDepositForCpa,

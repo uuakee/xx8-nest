@@ -32,4 +32,3 @@ export class UpdateRakebackSettingDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

@@ -608,9 +608,7 @@ export class LobsterController {
 
   @UseGuards(AuthGuard('admin-jwt'))
   @Get('rakeback-histories')
-  adminListRakebackHistories(
-    @Query() query: AdminListRakebackHistoriesDto,
-  ) {
+  adminListRakebackHistories(@Query() query: AdminListRakebackHistoriesDto) {
     return this.lobsterService.adminListRakebackHistories(query);
   }
 

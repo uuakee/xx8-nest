@@ -22,7 +22,6 @@ export class AdminListReedemCodeHistoriesDto {
   @IsString()
   user_document?: string;
 
-
   @IsOptional()
   @IsDateString()
   created_from?: string;
@@ -52,4 +51,3 @@ export class AdminListReedemCodeHistoriesDto {
   @IsIn(['asc', 'desc'])
   order_dir?: 'asc' | 'desc';
 }
-

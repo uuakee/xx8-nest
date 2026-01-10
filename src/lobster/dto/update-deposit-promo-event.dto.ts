@@ -1,4 +1,10 @@
-import { IsBoolean, IsDateString, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 
 export class UpdateDepositPromoEventDto {
   @IsOptional()
@@ -18,4 +24,3 @@ export class UpdateDepositPromoEventDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

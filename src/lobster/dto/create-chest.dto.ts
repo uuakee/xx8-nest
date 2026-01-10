@@ -21,4 +21,3 @@ export class CreateChestDto {
   @IsBoolean()
   is_active?: boolean;
 }
-

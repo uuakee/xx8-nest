@@ -1,4 +1,12 @@
-import { IsBoolean, IsInt, IsNumber, IsOptional, Min, MinLength, IsString } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  Min,
+  MinLength,
+  IsString,
+} from 'class-validator';
 
 export class CreateDepositPromoTierDto {
   @IsInt()
@@ -29,4 +37,3 @@ export class CreateDepositPromoTierDto {
   @IsInt()
   sort_order?: number;
 }
-

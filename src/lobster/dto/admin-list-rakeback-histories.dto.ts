@@ -58,4 +58,3 @@ export class AdminListRakebackHistoriesDto {
   @IsIn(['asc', 'desc'])
   order_dir?: 'asc' | 'desc';
 }
-

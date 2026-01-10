@@ -196,7 +196,7 @@ export class PradaPaymentGatewayService {
     }
 
     // log de depuração para inspecionar a resposta da PradaPay no cashout
-    // eslint-disable-next-line no-console
+
     console.log('PradaPay cashout response:', JSON.stringify(response));
 
     const { status, idTransaction } = response ?? {};
@@ -275,9 +275,7 @@ export class PradaPaymentGatewayService {
           });
 
           if (!existingCpa) {
-            const depositAmountNumber = this.getDecimalNumber(
-              deposit.amount as Prisma.Decimal,
-            );
+            const depositAmountNumber = this.getDecimalNumber(deposit.amount);
 
             let currentAffiliateId: number | null | undefined = rootInviterId;
             let level = 1;
@@ -319,9 +317,8 @@ export class PradaPaymentGatewayService {
                       affiliate.cpa_level_3 as Prisma.Decimal;
                   }
 
-                  const levelAmountNumber = this.getDecimalNumber(
-                    levelAmountDecimal,
-                  );
+                  const levelAmountNumber =
+                    this.getDecimalNumber(levelAmountDecimal);
 
                   if (levelAmountNumber > 0 && levelAmountDecimal) {
                     await tx.affiliateHistory.create({

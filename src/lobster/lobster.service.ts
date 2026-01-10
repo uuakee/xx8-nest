@@ -610,7 +610,7 @@ export class LobsterService {
     });
   }
 
-   async addGamesToCategory(categoryId: number, gameIds: number[]) {
+  async addGamesToCategory(categoryId: number, gameIds: number[]) {
     await this.ensureCategoryExists(categoryId);
     if (!gameIds || gameIds.length === 0) {
       return this.getCategoryById(categoryId);
@@ -666,11 +666,74 @@ export class LobsterService {
   }
 
   async updateGame(id: number, dto: UpdateGameDto) {
-    await this.ensureGameExists(id);
-    return this.prisma.game.update({
+    const existing = await this.prisma.game.findUnique({
+      where: { id },
+      select: {
+        is_hot: true,
+        categories: {
+          select: { id: true },
+        },
+      },
+    });
+    if (!existing) {
+      throw new NotFoundException('game_not_found');
+    }
+
+    const updated = await this.prisma.game.update({
       where: { id },
       data: dto,
     });
+
+    const isHotChanging =
+      dto.is_hot !== undefined && dto.is_hot !== existing.is_hot;
+
+    if (isHotChanging) {
+      const hotCategory = await this.prisma.category.findFirst({
+        where: {
+          is_active: true,
+          OR: [
+            { id: 1 },
+            {
+              name: {
+                contains: 'Quente',
+                mode: 'insensitive',
+              },
+            },
+          ],
+        },
+        orderBy: { id: 'asc' },
+      });
+
+      if (hotCategory) {
+        const isLinked = existing.categories.some(
+          (category) => category.id === hotCategory.id,
+        );
+
+        if (dto.is_hot === true && !isLinked) {
+          await this.prisma.category.update({
+            where: { id: hotCategory.id },
+            data: {
+              games: {
+                connect: { id },
+              },
+            },
+          });
+        }
+
+        if (dto.is_hot === false && isLinked) {
+          await this.prisma.category.update({
+            where: { id: hotCategory.id },
+            data: {
+              games: {
+                disconnect: { id },
+              },
+            },
+          });
+        }
+      }
+    }
+
+    return updated;
   }
 
   async setGameCategories(gameId: number, categoryIds: number[]) {
@@ -1025,7 +1088,11 @@ export class LobsterService {
 
   async listDepositPromoEvents() {
     return this.prisma.depositPromoEvent.findMany({
-      orderBy: [{ is_active: 'desc' }, { start_date: 'desc' }, { created_at: 'desc' }],
+      orderBy: [
+        { is_active: 'desc' },
+        { start_date: 'desc' },
+        { created_at: 'desc' },
+      ],
       include: {
         tiers: {
           orderBy: [{ sort_order: 'asc' }, { deposit_amount: 'asc' }],
@@ -1071,7 +1138,9 @@ export class LobsterService {
       where: { id },
       data: {
         name: dto.name ?? exists.name,
-        start_date: dto.start_date ? new Date(dto.start_date) : exists.start_date,
+        start_date: dto.start_date
+          ? new Date(dto.start_date)
+          : exists.start_date,
         end_date: dto.end_date ? new Date(dto.end_date) : exists.end_date,
         is_active: dto.is_active ?? exists.is_active,
       },
@@ -1163,7 +1232,9 @@ export class LobsterService {
         event_id: eventId,
         name: dto.name ?? tier.name,
         deposit_amount:
-          dto.deposit_amount !== undefined ? dto.deposit_amount : tier.deposit_amount,
+          dto.deposit_amount !== undefined
+            ? dto.deposit_amount
+            : tier.deposit_amount,
         bonus_amount:
           dto.bonus_amount !== undefined ? dto.bonus_amount : tier.bonus_amount,
         rollover_amount:
@@ -1803,9 +1874,7 @@ export class LobsterService {
     return { deleted: true };
   }
 
-  async adminListReedemCodeHistories(
-    filters: AdminListReedemCodeHistoriesDto,
-  ) {
+  async adminListReedemCodeHistories(filters: AdminListReedemCodeHistoriesDto) {
     const rawPage = filters.page ?? 1;
     const rawPageSize = filters.page_size ?? 20;
     const page = Number(rawPage) > 0 ? Number(rawPage) : 1;
@@ -2107,9 +2176,7 @@ export class LobsterService {
         continue;
       }
 
-      const percentageNumber = Number(
-        selectedSetting.percentage.toString(),
-      );
+      const percentageNumber = Number(selectedSetting.percentage.toString());
       if (!Number.isFinite(percentageNumber) || percentageNumber <= 0) {
         continue;
       }
@@ -2349,16 +2416,16 @@ export class LobsterService {
 
   async getDashboard() {
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate(),
+    );
     const startOf7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const startOf30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
     // Deposits stats
-    const [
-      depositsToday,
-      deposits7d,
-      deposits30d,
-    ] = await Promise.all([
+    const [depositsToday, deposits7d, deposits30d] = await Promise.all([
       this.prisma.deposit.aggregate({
         where: {
           status: 'PAID',
@@ -2386,44 +2453,37 @@ export class LobsterService {
     ]);
 
     // Withdrawals stats
-    const [
-      withdrawalsToday,
-      withdrawals7d,
-      withdrawals30d,
-    ] = await Promise.all([
-      this.prisma.withdrawal.aggregate({
-        where: {
-          status: 'PAID',
-          created_at: { gte: startOfToday },
-        },
-        _count: true,
-        _sum: { amount: true },
-      }),
-      this.prisma.withdrawal.aggregate({
-        where: {
-          status: 'PAID',
-          created_at: { gte: startOf7Days },
-        },
-        _count: true,
-        _sum: { amount: true },
-      }),
-      this.prisma.withdrawal.aggregate({
-        where: {
-          status: 'PAID',
-          created_at: { gte: startOf30Days },
-        },
-        _count: true,
-        _sum: { amount: true },
-      }),
-    ]);
+    const [withdrawalsToday, withdrawals7d, withdrawals30d] = await Promise.all(
+      [
+        this.prisma.withdrawal.aggregate({
+          where: {
+            status: 'PAID',
+            created_at: { gte: startOfToday },
+          },
+          _count: true,
+          _sum: { amount: true },
+        }),
+        this.prisma.withdrawal.aggregate({
+          where: {
+            status: 'PAID',
+            created_at: { gte: startOf7Days },
+          },
+          _count: true,
+          _sum: { amount: true },
+        }),
+        this.prisma.withdrawal.aggregate({
+          where: {
+            status: 'PAID',
+            created_at: { gte: startOf30Days },
+          },
+          _count: true,
+          _sum: { amount: true },
+        }),
+      ],
+    );
 
     // Users stats
-    const [
-      usersToday,
-      users7d,
-      users30d,
-      totalUsers,
-    ] = await Promise.all([
+    const [usersToday, users7d, users30d, totalUsers] = await Promise.all([
       this.prisma.user.count({
         where: { created_at: { gte: startOfToday } },
       }),
@@ -2437,12 +2497,7 @@ export class LobsterService {
     ]);
 
     // Games stats
-    const [
-      totalGames,
-      activeGames,
-      hotGames,
-      gamesViews,
-    ] = await Promise.all([
+    const [totalGames, activeGames, hotGames, gamesViews] = await Promise.all([
       this.prisma.game.count(),
       this.prisma.game.count({ where: { is_active: true } }),
       this.prisma.game.count({ where: { is_hot: true, is_active: true } }),

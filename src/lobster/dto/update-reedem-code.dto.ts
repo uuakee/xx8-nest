@@ -23,13 +23,13 @@ export class UpdateReedemCodeDto {
   @IsBoolean()
   is_active?: boolean;
 
-   @IsOptional()
-   @IsNumber()
-   @Min(0)
-   bonus?: number;
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  bonus?: number;
 
-   @IsOptional()
-   @IsInt()
-   @Min(0)
-   free_spins?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  free_spins?: number;
 }

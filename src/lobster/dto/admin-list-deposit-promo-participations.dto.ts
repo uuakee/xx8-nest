@@ -63,4 +63,3 @@ export class AdminListDepositPromoParticipationsDto {
   @IsIn(['asc', 'desc'])
   order_dir?: 'asc' | 'desc';
 }
-
