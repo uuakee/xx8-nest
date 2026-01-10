@@ -627,6 +627,20 @@ export class LobsterService {
     });
   }
 
+  async removeGameFromCategory(categoryId: number, gameId: number) {
+    await this.ensureCategoryExists(categoryId);
+    await this.ensureGameExists(gameId);
+    return this.prisma.category.update({
+      where: { id: categoryId },
+      data: {
+        games: {
+          disconnect: { id: gameId },
+        },
+      },
+      include: { games: true },
+    });
+  }
+
   async listGames() {
     return this.prisma.game.findMany({
       orderBy: { created_at: 'desc' },

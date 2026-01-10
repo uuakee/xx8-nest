@@ -119,6 +119,15 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Delete('categories/:id/games/:gameId')
+  removeGameFromCategory(
+    @Param('id', ParseIntPipe) categoryId: number,
+    @Param('gameId', ParseIntPipe) gameId: number,
+  ) {
+    return this.lobsterService.removeGameFromCategory(categoryId, gameId);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Post('categories/:id/games')
   addGamesToCategory(
     @Param('id', ParseIntPipe) categoryId: number,
