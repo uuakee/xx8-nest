@@ -573,6 +573,7 @@ export class LobsterService {
         name: dto.name,
         image: dto.image,
         is_active: dto.is_active ?? true,
+        show_in_home: dto.show_in_home ?? true,
       },
     });
   }

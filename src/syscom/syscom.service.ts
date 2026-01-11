@@ -27,6 +27,7 @@ export class SyscomService {
     const categories = await this.prisma.category.findMany({
       where: {
         is_active: true,
+        show_in_home: true,
         games: {
           some: {},
         },

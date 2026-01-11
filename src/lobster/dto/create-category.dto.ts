@@ -17,4 +17,8 @@ export class CreateCategoryDto {
   @IsOptional()
   @IsBoolean()
   is_active?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  show_in_home?: boolean;
 }
