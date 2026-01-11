@@ -556,7 +556,7 @@ model PradaPayment {
 // Game Providers Credentials
 model PPCloneProvider {
   id           Int      @id @default(autoincrement())
-  base_url     String   @default("https://api.pragamatic.fun")
+  base_url     String   @default("https://api.pragmaticslots.fun/")
   agent_code   String
   agent_secret String
   active       Boolean  @default(true)
@@ -568,7 +568,7 @@ model PPCloneProvider {
 
 model PGCloneProvider {
   id           Int      @id @default(autoincrement())
-  base_url     String   @default("https://api.apioficialpokergames.site/api/v1/")
+  base_url     String   @default("https://api.apipokergames.site/api/v1/")
   agent_code   String
   agent_secret String
   agent_token  String
