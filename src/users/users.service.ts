@@ -8,6 +8,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PradaPaymentGatewayService } from './prada-payment.gateway';
 import { RedeemVipBonusDto } from './dto/redeem-vip-bonus.dto';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @Injectable()
 export class UsersService {
@@ -83,11 +84,17 @@ export class UsersService {
           max_withdrawal: true,
           auto_withdrawal: true,
           auto_withdrawal_limit: true,
+          need_document: true,
         },
       });
 
       if (!settings) {
         throw new BadRequestException('settings_not_configured');
+      }
+
+      // Validar se documento é necessário para saque
+      if (!user.document) {
+        throw new BadRequestException('document_required_for_withdrawal');
       }
 
       const minWithdrawal = this.getDecimalNumber(settings.min_withdrawal);
@@ -162,7 +169,7 @@ export class UsersService {
           amount: amountDecimal,
           status: 'PENDING',
           user_name: dto.user_name,
-          user_document: dto.user_document,
+          user_document: dto.user_document || user.document,
           user_keypix: dto.keypix,
           user_keytype: dto.keytype,
         },
@@ -1425,6 +1432,71 @@ export class UsersService {
       });
 
       return history;
+    });
+  }
+
+  async updateDocument(userId: number, dto: UpdateDocumentDto) {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: {
+          id: true,
+          document: true,
+        },
+      });
+
+      if (!user) {
+        throw new NotFoundException('user_not_found');
+      }
+
+      // Buscar configuração do sistema
+      const settings = await tx.setting.findUnique({
+        where: { id: 1 },
+        select: {
+          need_document: true,
+        },
+      });
+
+      // Se need_document é true e o usuário já tem documento, não permite atualizar
+      if (settings?.need_document && user.document) {
+        throw new BadRequestException('document_already_registered');
+      }
+
+      // Verificar se o documento já está em uso por outro usuário
+      const docExists = await tx.user.findFirst({
+        where: {
+          document: dto.document,
+          id: {
+            not: userId,
+          },
+        },
+      });
+
+      if (docExists) {
+        throw new BadRequestException('document_in_use');
+      }
+
+      // Atualizar documento
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: {
+          document: dto.document,
+        },
+        select: {
+          id: true,
+          pid: true,
+          phone: true,
+          document: true,
+        },
+      });
+
+      return {
+        id: updatedUser.id,
+        pid: updatedUser.pid,
+        phone: updatedUser.phone,
+        document: updatedUser.document,
+        message: 'document_updated_successfully',
+      };
     });
   }
 }

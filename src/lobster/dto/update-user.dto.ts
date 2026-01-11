@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Min,
   MinLength,
 } from 'class-validator';
@@ -12,10 +13,14 @@ import {
 export class AdminUpdateUserDto {
   @IsOptional()
   @IsString()
+  @MinLength(1)
   phone?: string;
 
   @IsOptional()
   @IsString()
+  @Matches(/^\d{11}$/, {
+    message: 'document_must_be_11_digits',
+  })
   document?: string;
 
   @IsOptional()

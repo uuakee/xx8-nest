@@ -30,7 +30,7 @@ model User {
   id                  Int     @id @default(autoincrement())
   pid                 String  @unique
   phone               String  @unique
-  document            String  @unique
+  document            String?  @unique
   password            String
   balance             Decimal @default(0.00) @db.Decimal(10, 2)
   affiliate_balance   Decimal @default(0.00) @db.Decimal(10, 2)
@@ -154,6 +154,7 @@ model Setting {
   max_withdrawal        Decimal @default(5000.00) @db.Decimal(10, 2)
   auto_withdrawal       Boolean @default(true)
   auto_withdrawal_limit Decimal @default(5000.00) @db.Decimal(10, 2)
+  need_document        Boolean @default(true)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
@@ -195,6 +196,7 @@ model Game {
   show_in_home Boolean @default(true)
 
   views Int @default(0)
+  weight Int @default(0)
 
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt

@@ -5,9 +5,10 @@ export class AdminCreateUserDto {
   @MinLength(1)
   phone!: string;
 
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  document!: string;
+  document?: string;
 
   @IsString()
   @MinLength(6)

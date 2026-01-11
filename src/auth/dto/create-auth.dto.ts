@@ -5,9 +5,10 @@ export class RegisterDto {
   @Length(10, 20)
   phone!: string;
 
+  @IsOptional()
   @IsString()
   @Matches(/^\d{11}$/)
-  document!: string;
+  document?: string;
 
   @IsString()
   @Length(6, 100)

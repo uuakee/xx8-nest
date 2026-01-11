@@ -68,4 +68,9 @@ export class UpdateSettingDto {
   @IsNumber()
   @Min(0)
   auto_withdrawal_limit?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  need_document?: boolean;
 }

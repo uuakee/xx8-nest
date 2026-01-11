@@ -14,6 +14,7 @@ import { UsersService } from './users.service';
 import { CreateDepositDto } from './dto/create-deposit.dto';
 import { RedeemVipBonusDto } from './dto/redeem-vip-bonus.dto';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
+import { UpdateDocumentDto } from './dto/update-document.dto';
 
 @Controller('users')
 export class UsersController {
@@ -135,5 +136,15 @@ export class UsersController {
   ) {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.redeemCode(u.sub, code);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('update-document')
+  updateDocument(
+    @Req() req: { user?: { sub: number; pid: string } },
+    @Body() dto: UpdateDocumentDto,
+  ) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.updateDocument(u.sub, dto);
   }
 }

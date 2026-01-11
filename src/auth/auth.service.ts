@@ -76,10 +76,29 @@ export class AuthService {
       where: { phone: dto.phone },
     });
     if (phoneExists) throw new BadRequestException('phone_in_use');
-    const docExists = await this.prisma.user.findUnique({
-      where: { document: dto.document },
+
+    // Buscar configuração do sistema
+    const settings = await this.prisma.setting.findUnique({
+      where: { id: 1 },
+      select: { need_document: true },
     });
-    if (docExists) throw new BadRequestException('document_in_use');
+
+    // Validar documento baseado na configuração
+    if (settings?.need_document) {
+      if (!dto.document) {
+        throw new BadRequestException('document_required');
+      }
+      const docExists = await this.prisma.user.findUnique({
+        where: { document: dto.document },
+      });
+      if (docExists) throw new BadRequestException('document_in_use');
+    } else if (dto.document) {
+      // Se documento foi fornecido mesmo não sendo obrigatório, validar unicidade
+      const docExists = await this.prisma.user.findUnique({
+        where: { document: dto.document },
+      });
+      if (docExists) throw new BadRequestException('document_in_use');
+    }
 
     const pid: string = await this.generatePid();
     const affiliateCode: string = await this.generateAffiliateCode();
@@ -136,7 +155,7 @@ export class AuthService {
         data: {
           pid,
           phone: dto.phone,
-          document: dto.document,
+          document: dto.document || null,
           password: passwordHash,
           affiliate_code: affiliateCode,
           invited_by_user_id: invitedByUserId,

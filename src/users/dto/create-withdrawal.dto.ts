@@ -8,8 +8,9 @@ export class CreateWithdrawalDto {
   @IsString()
   user_name!: string;
 
+  @IsOptional()
   @IsString()
-  user_document!: string;
+  user_document?: string;
 
   @IsOptional()
   @IsString()

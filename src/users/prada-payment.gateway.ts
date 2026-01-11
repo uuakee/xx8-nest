@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'node:url';
+import { generateValidCPF } from '../utils/cpf.util';
 
 @Injectable()
 export class PradaPaymentGatewayService {
@@ -107,6 +108,9 @@ export class PradaPaymentGatewayService {
 
     const apiKey = config.api_key;
 
+    // Se usuário não tem documento, gerar CPF válido
+    const document = user.document || generateValidCPF();
+
     const payload = {
       requestNumber,
       amount,
@@ -114,7 +118,7 @@ export class PradaPaymentGatewayService {
       postback,
       client: {
         name: `User ${user.pid}`,
-        document: user.document,
+        document,
         email: `user${user.id}@example.com`,
         userPhone: user.phone,
       },
