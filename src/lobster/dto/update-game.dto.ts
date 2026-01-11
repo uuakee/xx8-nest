@@ -6,6 +6,7 @@ import {
   IsOptional,
   IsString,
   IsUrl,
+  Min,
   MinLength,
 } from 'class-validator';
 import { GameType } from '@prisma/client';
@@ -64,4 +65,9 @@ export class UpdateGameDto {
   @IsOptional()
   @IsBoolean()
   show_in_home?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  weight?: number;
 }

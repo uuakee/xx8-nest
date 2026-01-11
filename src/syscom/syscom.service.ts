@@ -42,6 +42,7 @@ export class SyscomService {
         },
         games: {
           where: { is_active: true },
+          orderBy: { weight: 'desc' },
           select: {
             id: true,
             name: true,
@@ -51,6 +52,7 @@ export class SyscomService {
             currency: true,
             game_type: true,
             show_in_home: true,
+            weight: true,
           },
         },
       },
@@ -60,9 +62,11 @@ export class SyscomService {
       const hotGames = category.games.filter((game) => game.show_in_home);
       const otherGames = category.games.filter((game) => !game.show_in_home);
 
+      // Jogos já vêm ordenados por weight DESC do banco
+      // Separar hot games e outros, mas manter ordem por peso
       const ordered = [
-        ...this.shuffleArray(hotGames),
-        ...this.shuffleArray(otherGames),
+        ...hotGames,
+        ...otherGames,
       ].slice(0, 12);
 
       const games = ordered.map(({ show_in_home, ...rest }) => rest);
@@ -153,7 +157,7 @@ export class SyscomService {
     const [items, total] = await this.prisma.$transaction([
       this.prisma.game.findMany({
         where,
-        orderBy: { created_at: 'desc' },
+        orderBy: [{ weight: 'desc' }, { created_at: 'desc' }],
         skip,
         take: pageSize,
         select: {
@@ -164,6 +168,7 @@ export class SyscomService {
           distribution: true,
           currency: true,
           game_type: true,
+          weight: true,
         },
       }),
       this.prisma.game.count({ where }),

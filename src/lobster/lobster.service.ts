@@ -643,7 +643,7 @@ export class LobsterService {
 
   async listGames() {
     return this.prisma.game.findMany({
-      orderBy: { created_at: 'desc' },
+      orderBy: [{ weight: 'desc' }, { created_at: 'desc' }],
       include: { categories: true },
     });
   }
@@ -664,6 +664,7 @@ export class LobsterService {
         is_hot: dto.is_hot ?? undefined,
         is_active: dto.is_active ?? undefined,
         show_in_home: dto.show_in_home ?? undefined,
+        weight: dto.weight ?? undefined,
       },
     });
   }
