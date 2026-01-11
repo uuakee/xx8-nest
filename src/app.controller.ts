@@ -36,6 +36,30 @@ export class AppController {
     return this.gameService.handlePokerWebhook(body);
   }
 
+  @Post('gold_api/user_balance')
+  goldApiUserBalance(@Body() body: any) {
+    return this.gameService.handleCloneWebhook(
+      { ...body, method: 'user_balance' },
+      'pg-clone',
+    );
+  }
+
+  @Post('gold_api/game_callback')
+  goldApiGameCallback(@Body() body: any) {
+    return this.gameService.handleCloneWebhook(
+      { ...body, method: 'game_callback' },
+      'pg-clone',
+    );
+  }
+
+  @Post('gold_api/money_callback')
+  goldApiMoneyCallback(@Body() body: any) {
+    return this.gameService.handleCloneWebhook(
+      { ...body, method: 'money_callback' },
+      'pg-clone',
+    );
+  }
+
   @Post('webhook/ppclone')
   ppCloneWebhook(@Body() body: any) {
     return this.gameService.handleCloneWebhook(body, 'pp-clone');
