@@ -1,19 +1,13 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
   url      = env("DATABASE_URL")
 }
 
-model Administrator {
+model administrators {
   id            Int     @id @default(autoincrement())
   name          String
   email         String  @unique
@@ -22,190 +16,147 @@ model Administrator {
   token_recover String?
   otp_code      String?
   avatar        String  @default("https://imgcdn.stablediffusionweb.com/2024/5/8/852aa9d2-d1f0-4353-b8f0-cd4f45e8c862.jpg")
-
-  @@map("administrators")
 }
 
-model User {
+model affiliate_histories {
+  id                                                 Int      @id @default(autoincrement())
+  user_id                                            Int
+  affiliate_user_id                                  Int
+  amount                                             Decimal  @default(0.00) @db.Decimal(10, 2)
+  cpa_level                                          Int      @default(0)
+  revshare_level                                     Int      @default(0)
+  type                                               String
+  created_at                                         DateTime @default(now())
+  users_affiliate_histories_affiliate_user_idTousers users    @relation("affiliate_histories_affiliate_user_idTousers", fields: [affiliate_user_id], references: [id])
+  users_affiliate_histories_user_idTousers           users    @relation("affiliate_histories_user_idTousers", fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([affiliate_user_id])
+  @@index([user_id, created_at])
+}
+
+model banners {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime
+}
+
+model categories {
+  id           Int      @id @default(autoincrement())
+  name         String
+  image        String
+  is_active    Boolean  @default(true)
+  show_in_home Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime
+  games        games[]  @relation("CategoryToGame")
+}
+
+model chest_withdrawls {
+  id         Int      @id @default(autoincrement())
+  user_id    Int
+  chest_id   Int
+  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
+  status     Boolean  @default(false)
+  created_at DateTime @default(now())
+  updated_at DateTime
+  chests     chests   @relation(fields: [chest_id], references: [id])
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([chest_id])
+  @@index([user_id, created_at])
+}
+
+model chests {
+  id               Int                @id @default(autoincrement())
+  need_referral    Int                @default(0)
+  need_deposit     Decimal            @default(0.00) @db.Decimal(10, 2)
+  need_bet         Decimal            @default(0.00) @db.Decimal(10, 2)
+  bonus            Decimal            @default(0.00) @db.Decimal(10, 2)
+  is_active        Boolean            @default(true)
+  created_at       DateTime           @default(now())
+  updated_at       DateTime
+  chest_withdrawls chest_withdrawls[]
+}
+
+model default_affiliate_bonuses {
   id                  Int     @id @default(autoincrement())
-  pid                 String  @unique
-  phone               String  @unique
-  document            String?  @unique
-  password            String
-  balance             Decimal @default(0.00) @db.Decimal(10, 2)
-  affiliate_balance   Decimal @default(0.00) @db.Decimal(10, 2)
-  vip_balance         Decimal @default(0.00) @db.Decimal(10, 2)
-  vip                 Int     @default(0)
-  affiliate_code      String? @unique
-  invited_by_user_id  Int?
-  password_withdrawal String?
-  rollover_active     Boolean @default(false)
-  rollover_multiplier Decimal @default(1.00) @db.Decimal(10, 2)
-
-  blogger                      Boolean                     @default(false)
-  banned                       Boolean                     @default(false)
-  status                       Boolean                     @default(true)
-  created_at                   DateTime                    @default(now())
-  updated_at                   DateTime                    @updatedAt
-  last_login_at                DateTime?
-  banned_at                    DateTime?
-  jump_available               Boolean                     @default(false)
-  jump_limit                   Int                         @default(2)
-  jump_invite_count            Int                         @default(0)
-  cpa_available                Boolean                     @default(false)
-  min_deposit_for_cpa          Decimal                     @default(0.00) @db.Decimal(10, 2)
-  cpa_level_1                  Decimal                     @default(0.00) @db.Decimal(10, 2)
-  cpa_level_2                  Decimal                     @default(0.00) @db.Decimal(10, 2)
-  cpa_level_3                  Decimal                     @default(0.00) @db.Decimal(10, 2)
-  revshare_fake                Decimal                     @default(0.00) @db.Decimal(10, 2)
-  revshare_level_1             Decimal                     @default(0.00) @db.Decimal(10, 2)
-  revshare_level_2             Decimal                     @default(0.00) @db.Decimal(10, 2)
-  revshare_level_3             Decimal                     @default(0.00) @db.Decimal(10, 2)
-  fake_revshare                Boolean                     @default(false)
-  vip_histories                VipHistory[]
-  vip_bonus_redemptions        VipBonusRedemption[]
-  affiliate_histories          AffiliateHistory[]          @relation("AffiliateUser")
-  referred_affiliate_histories AffiliateHistory[]          @relation("AffiliateReferrer")
-  chest_withdrawls             ChestWithdrawal[]
-  deposits                     Deposit[]
-  withdrawals                  Withdrawal[]
-  level_promo_progresses       LevelPromoProgress[]
-  deposit_promo_participations DepositPromoParticipation[]
-  inviter                      User?                       @relation("UserInviter", fields: [invited_by_user_id], references: [id])
-  invitees                     User[]                      @relation("UserInviter")
-  game_transactions            GameTransaction[]
-  reedem_code_histories        ReedemCodeHistory[]
-  rakeback_histories           RakebackHistory[]
-
-  @@index([status, banned])
-  @@index([created_at])
-  @@index([last_login_at])
-  @@index([affiliate_code])
-  @@index([invited_by_user_id])
-  @@map("users")
+  cpa_level_1         Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_2         Decimal @default(0.00) @db.Decimal(10, 2)
+  cpa_level_3         Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_fake       Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_level_1    Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_level_2    Decimal @default(0.00) @db.Decimal(10, 2)
+  revshare_level_3    Decimal @default(0.00) @db.Decimal(10, 2)
+  min_deposit_for_cpa Decimal @default(0.00) @db.Decimal(10, 2)
+  fake_revshare       Boolean @default(false)
 }
 
-// System Configurations
-model Banner {
-  id         Int      @id @default(autoincrement())
-  name       String
-  image_url  String
-  target_url String
-  is_active  Boolean  @default(true)
-  sort_order Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("banners")
+model deposit_promo_events {
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  start_date          DateTime
+  end_date            DateTime
+  is_active           Boolean               @default(true)
+  created_at          DateTime              @default(now())
+  updated_at          DateTime
+  deposit_promo_tiers deposit_promo_tiers[]
 }
 
-model SubBanner {
-  id         Int      @id @default(autoincrement())
-  name       String
-  image_url  String
-  target_url String
-  is_active  Boolean  @default(true)
-  sort_order Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+model deposit_promo_participations {
+  id                  Int                 @id @default(autoincrement())
+  user_id             Int
+  tier_id             Int
+  deposit_id          Int
+  promo_date          DateTime
+  created_at          DateTime            @default(now())
+  deposits            deposits            @relation(fields: [deposit_id], references: [id], onDelete: Cascade)
+  deposit_promo_tiers deposit_promo_tiers @relation(fields: [tier_id], references: [id], onDelete: Cascade)
+  users               users               @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@map("sub_banners")
+  @@index([deposit_id])
+  @@index([tier_id])
+  @@index([user_id, promo_date])
 }
 
-model PopupBanner {
-  id         Int      @id @default(autoincrement())
-  name       String
-  image_url  String
-  target_url String
-  is_active  Boolean  @default(true)
-  sort_order Int      @default(0)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+model deposit_promo_tiers {
+  id                           Int                            @id @default(autoincrement())
+  event_id                     Int
+  name                         String
+  deposit_amount               Decimal                        @default(0.00) @db.Decimal(10, 2)
+  bonus_amount                 Decimal                        @default(0.00) @db.Decimal(10, 2)
+  rollover_amount              Decimal                        @default(0.00) @db.Decimal(10, 2)
+  is_active                    Boolean                        @default(true)
+  sort_order                   Int                            @default(0)
+  created_at                   DateTime                       @default(now())
+  updated_at                   DateTime
+  deposit_promo_participations deposit_promo_participations[]
+  deposit_promo_events         deposit_promo_events           @relation(fields: [event_id], references: [id], onDelete: Cascade)
 
-  @@map("popup_banners")
+  @@index([event_id])
 }
 
-model PopupIcon {
-  id         Int      @id @default(autoincrement())
-  name       String
-  image_url  String
-  target_url String
-  is_active  Boolean  @default(true)
-  direction  String   @default("right")
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
+model deposits {
+  id                           Int                            @id @default(autoincrement())
+  user_id                      Int
+  amount                       Decimal                        @default(0.00) @db.Decimal(10, 2)
+  status                       String                         @default("PENDING")
+  request_number               String?
+  reference                    String?
+  paid_at                      DateTime?
+  updated_at                   DateTime
+  created_at                   DateTime                       @default(now())
+  deposit_promo_participations deposit_promo_participations[]
+  users                        users                          @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@map("popup_icons")
+  @@index([user_id, created_at, status, reference])
 }
 
-model Setting {
-  id                    Int     @id @default(autoincrement())
-  sys_name              String
-  sys_favicon           String
-  sys_logo              String
-  sys_description       String?
-  sys_marquee           String?
-  sys_support_telegram  String?
-  sys_support_whatsapp  String?
-  sys_support_email     String?
-  min_deposit           Decimal @default(5.00) @db.Decimal(10, 2)
-  max_deposit           Decimal @default(5000.00) @db.Decimal(10, 2)
-  min_withdrawal        Decimal @default(5.00) @db.Decimal(10, 2)
-  max_withdrawal        Decimal @default(5000.00) @db.Decimal(10, 2)
-  auto_withdrawal       Boolean @default(true)
-  auto_withdrawal_limit Decimal @default(5000.00) @db.Decimal(10, 2)
-  need_document        Boolean @default(true)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("settings")
-}
-
-model Category {
-  id         Int      @id @default(autoincrement())
-  name       String
-  image      String
-  is_active  Boolean  @default(true)
-  show_in_home Boolean @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  games      Game[]
-
-  @@map("categories")
-}
-
-model Game {
-  id Int @id @default(autoincrement())
-
-  name        String
-  game_code   String
-  game_id     String?
-  image       String?
-  description String? @db.Text
-
-  categories Category[]
-
-  game_type GameType?
-  currency  String?   @default("BRL")
-  rtp       Decimal?  @db.Decimal(5, 2)
-
-  status       String  @default("active")
-  distribution String?
-  is_hot       Boolean @default(false)
-  is_active    Boolean @default(true)
-  show_in_home Boolean @default(true)
-
-  views Int @default(0)
-  weight Int @default(0)
-
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("games")
-}
-
-model GameTransaction {
+model game_transactions {
   id                      Int      @id @default(autoincrement())
   user_id                 Int
   action                  String
@@ -218,228 +169,333 @@ model GameTransaction {
   round_id                String?
   amount                  Decimal? @db.Decimal(10, 2)
   currency                String?  @default("BRL")
-  raw_request             Json?
+  raw_request             String?  @db.LongText
   created_at              DateTime @default(now())
-  user                    User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  users                   users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([user_id, created_at])
   @@index([player_id, created_at])
   @@index([provider_transaction_id])
-  @@map("game_transactions")
-}
-
-enum GameType {
-  SLOTS
-  FISHING
-  CASINO
-}
-
-model Chest {
-  id            Int               @id @default(autoincrement())
-  need_referral Int               @default(0)
-  need_deposit  Decimal           @default(0.00) @db.Decimal(10, 2)
-  need_bet      Decimal           @default(0.00) @db.Decimal(10, 2)
-  bonus         Decimal           @default(0.00) @db.Decimal(10, 2)
-  is_active     Boolean           @default(true)
-  created_at    DateTime          @default(now())
-  updated_at    DateTime          @updatedAt
-  withdrawals   ChestWithdrawal[]
-
-  @@map("chests")
-}
-
-model ChestWithdrawal {
-  id         Int      @id @default(autoincrement())
-  user_id    Int
-  chest_id   Int
-  amount     Decimal  @default(0.00) @db.Decimal(10, 2)
-  status     Boolean  @default(false)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  chest      Chest    @relation(fields: [chest_id], references: [id])
-
   @@index([user_id, created_at])
-  @@index([chest_id])
-  @@map("chest_withdrawls")
 }
 
-model DepositPromoEvent {
-  id         Int                @id @default(autoincrement())
-  name       String
-  start_date DateTime
-  end_date   DateTime
-  is_active  Boolean            @default(true)
-  created_at DateTime           @default(now())
-  updated_at DateTime           @updatedAt
-  tiers      DepositPromoTier[]
-
-  @@map("deposit_promo_events")
+model games {
+  id           Int              @id @default(autoincrement())
+  name         String
+  game_code    String
+  game_id      String?
+  image        String?
+  description  String?          @db.Text
+  game_type    games_game_type?
+  currency     String?          @default("BRL")
+  rtp          Decimal?         @db.Decimal(5, 2)
+  status       String           @default("active")
+  distribution String?
+  is_hot       Boolean          @default(false)
+  is_active    Boolean          @default(true)
+  show_in_home Boolean          @default(true)
+  views        Int              @default(0)
+  weight       Int              @default(0)
+  created_at   DateTime         @default(now())
+  updated_at   DateTime
+  categories   categories[]     @relation("CategoryToGame")
 }
 
-model DepositPromoTier {
-  id              Int                         @id @default(autoincrement())
-  event_id        Int
-  name            String
-  deposit_amount  Decimal                     @default(0.00) @db.Decimal(10, 2)
-  bonus_amount    Decimal                     @default(0.00) @db.Decimal(10, 2)
-  rollover_amount Decimal                     @default(0.00) @db.Decimal(10, 2)
-  is_active       Boolean                     @default(true)
-  sort_order      Int                         @default(0)
-  created_at      DateTime                    @default(now())
-  updated_at      DateTime                    @updatedAt
-  participations  DepositPromoParticipation[]
-  event           DepositPromoEvent           @relation(fields: [event_id], references: [id], onDelete: Cascade)
+model level_promo_bonuses {
+  id                Int               @id @default(autoincrement())
+  tier_id           Int
+  day_index         Int
+  bonus_value       Decimal           @default(0.00) @db.Decimal(10, 2)
+  level_promo_tiers level_promo_tiers @relation(fields: [tier_id], references: [id], onDelete: Cascade)
 
-  @@index([event_id])
-  @@map("deposit_promo_tiers")
+  @@index([tier_id, day_index])
 }
 
-model DepositPromoParticipation {
-  id         Int              @id @default(autoincrement())
-  user_id    Int
-  tier_id    Int
-  deposit_id Int
-  promo_date DateTime
-  created_at DateTime         @default(now())
-  user       User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  tier       DepositPromoTier @relation(fields: [tier_id], references: [id], onDelete: Cascade)
-  deposit    Deposit          @relation(fields: [deposit_id], references: [id], onDelete: Cascade)
+model level_promo_progresses {
+  id              Int       @id @default(autoincrement())
+  user_id         Int
+  current_day     Int       @default(0)
+  last_checkin_at DateTime?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime
+  users           users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
-  @@index([user_id, promo_date])
-  @@index([tier_id])
-  @@index([deposit_id])
-  @@map("deposit_promo_participations")
+  @@index([user_id])
 }
 
-model Mensage {
+model level_promo_tiers {
+  id                  Int                   @id @default(autoincrement())
+  name                String
+  min_volume          Decimal               @default(0.00) @db.Decimal(10, 2)
+  level_promo_bonuses level_promo_bonuses[]
+}
+
+model messages {
   id         Int      @id @default(autoincrement())
   title      String
   content    String
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("messages")
+  updated_at DateTime
 }
 
-model ReedemCode {
-  id                    Int                 @id @default(autoincrement())
-  code                  String              @unique
-  max_collect           Int                 @default(0)
-  collected_count       Int                 @default(0)
-  bonus                 Decimal?            @default(0.00) @db.Decimal(10, 2)
-  free_spins            Int?                @default(0)
-  is_active             Boolean             @default(true)
-  created_at            DateTime            @default(now())
-  updated_at            DateTime            @updatedAt
-  reedem_code_histories ReedemCodeHistory[]
-
-  @@map("reedem_codes")
+model pg_clone_providers {
+  id           Int      @id @default(autoincrement())
+  base_url     String   @default("https://api.apipokergames.site/api/v1/")
+  agent_code   String
+  agent_secret String
+  agent_token  String
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime
 }
 
-model ReedemCodeHistory {
-  id             Int        @id @default(autoincrement())
+model poker_providers {
+  id           Int      @id @default(autoincrement())
+  base_url     String   @default("https://pokersgamessistemas.com/api/v1/")
+  agent_code   String
+  agent_secret String
+  agent_token  String
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime
+}
+
+model popup_banners {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime
+}
+
+model popup_icons {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  direction  String   @default("right")
+  created_at DateTime @default(now())
+  updated_at DateTime
+}
+
+model pp_clone_providers {
+  id           Int      @id @default(autoincrement())
+  base_url     String   @default("https://api.pragmaticslots.fun/")
+  agent_code   String
+  agent_secret String
+  active       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime
+}
+
+model prada_payments {
+  id         Int      @id @default(autoincrement())
+  base_url   String   @default("https://api.pradapay.com")
+  api_key    String
+  active     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime
+}
+
+model promotions {
+  id         Int       @id @default(autoincrement())
+  name       String
+  icon_url   String
+  image_url  String
+  target_url String
+  is_active  Boolean   @default(true)
+  sort_order Int       @default(0)
+  starts_at  DateTime?
+  ends_at    DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime
+}
+
+model rakeback_histories {
+  id                Int               @id @default(autoincrement())
+  user_id           Int
+  setting_id        Int
+  amount            Decimal           @default(0.00) @db.Decimal(10, 2)
+  redeemed          Boolean           @default(false)
+  redeemed_at       DateTime?
+  created_at        DateTime          @default(now())
+  rakeback_settings rakeback_settings @relation(fields: [setting_id], references: [id], onDelete: Cascade)
+  users             users             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([setting_id])
+  @@index([user_id, created_at])
+}
+
+model rakeback_settings {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  min_volume         Decimal              @default(0.00) @db.Decimal(10, 2)
+  percentage         Decimal              @default(0.00) @db.Decimal(10, 2)
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now())
+  updated_at         DateTime
+  rakeback_histories rakeback_histories[]
+}
+
+model reedem_code_histories {
+  id             Int          @id @default(autoincrement())
   reedem_code_id Int
   user_id        Int
-  collected_at   DateTime   @default(now())
-  bonus          Decimal?   @default(0.00) @db.Decimal(10, 2)
-  free_spins     Int?       @default(0)
-  user           User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  reedem_code    ReedemCode @relation(fields: [reedem_code_id], references: [id])
+  collected_at   DateTime     @default(now())
+  bonus          Decimal?     @default(0.00) @db.Decimal(10, 2)
+  free_spins     Int?         @default(0)
+  reedem_codes   reedem_codes @relation(fields: [reedem_code_id], references: [id])
+  users          users        @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([reedem_code_id, user_id])
-  @@map("reedem_code_histories")
+  @@index([user_id], map: "reedem_code_histories_user_id_fkey")
 }
 
-model RakebackSetting {
-  id                Int               @id @default(autoincrement())
-  name              String
-  min_volume        Decimal           @default(0.00) @db.Decimal(10, 2)
-  percentage        Decimal           @default(0.00) @db.Decimal(10, 2)
-  is_active         Boolean           @default(true)
-  created_at        DateTime          @default(now())
-  updated_at        DateTime          @updatedAt
-  rakebackHistories RakebackHistory[]
-
-  @@map("rakeback_settings")
+model reedem_codes {
+  id                    Int                     @id @default(autoincrement())
+  code                  String                  @unique
+  max_collect           Int                     @default(0)
+  collected_count       Int                     @default(0)
+  bonus                 Decimal?                @default(0.00) @db.Decimal(10, 2)
+  free_spins            Int?                    @default(0)
+  is_active             Boolean                 @default(true)
+  created_at            DateTime                @default(now())
+  updated_at            DateTime
+  reedem_code_histories reedem_code_histories[]
 }
 
-model RakebackHistory {
-  id          Int             @id @default(autoincrement())
-  user_id     Int
-  setting_id  Int
-  amount      Decimal         @default(0.00) @db.Decimal(10, 2)
-  redeemed    Boolean         @default(false)
-  redeemed_at DateTime?
-  created_at  DateTime        @default(now())
-  user        User            @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  setting     RakebackSetting @relation(fields: [setting_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id, created_at])
-  @@index([setting_id])
-  @@map("rakeback_histories")
+model settings {
+  id                    Int      @id @default(autoincrement())
+  sys_name              String
+  sys_favicon           String
+  sys_logo              String
+  sys_description       String?
+  sys_marquee           String?
+  sys_support_telegram  String?
+  sys_support_whatsapp  String?
+  sys_support_email     String?
+  min_deposit           Decimal  @default(5.00) @db.Decimal(10, 2)
+  max_deposit           Decimal  @default(5000.00) @db.Decimal(10, 2)
+  min_withdrawal        Decimal  @default(5.00) @db.Decimal(10, 2)
+  max_withdrawal        Decimal  @default(5000.00) @db.Decimal(10, 2)
+  auto_withdrawal       Boolean  @default(true)
+  auto_withdrawal_limit Decimal  @default(5000.00) @db.Decimal(10, 2)
+  need_document         Boolean  @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime
 }
 
-model VipLevel {
-  id            Int          @id @default(autoincrement())
-  id_vip        Int          @default(0)
-  goal          Decimal      @default(0.00) @db.Decimal(10, 2)
-  bonus         Decimal      @default(0.00) @db.Decimal(10, 2)
-  weekly_bonus  Decimal      @default(0.00) @db.Decimal(10, 2)
-  monthly_bonus Decimal      @default(0.00) @db.Decimal(10, 2)
-  vip_histories VipHistory[]
-
-  @@index([id_vip])
-  @@map("vip_levels")
+model sub_banners {
+  id         Int      @id @default(autoincrement())
+  name       String
+  image_url  String
+  target_url String
+  is_active  Boolean  @default(true)
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  updated_at DateTime
 }
 
-model VipHistory {
-  id           Int      @id @default(autoincrement())
-  user_id      Int
-  vip_level_id Int
-  goal         Decimal  @default(0.00) @db.Decimal(10, 2)
-  bonus        Decimal  @default(0.00) @db.Decimal(10, 2)
-  kind         String   @default("upgrade")
-  created_at   DateTime @default(now())
-  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  vip_level    VipLevel @relation(fields: [vip_level_id], references: [id])
+model users {
+  id                                                               Int                            @id @default(autoincrement())
+  pid                                                              String                         @unique
+  phone                                                            String                         @unique
+  document                                                         String?                        @unique
+  password                                                         String
+  balance                                                          Decimal                        @default(0.00) @db.Decimal(10, 2)
+  affiliate_balance                                                Decimal                        @default(0.00) @db.Decimal(10, 2)
+  vip_balance                                                      Decimal                        @default(0.00) @db.Decimal(10, 2)
+  vip                                                              Int                            @default(0)
+  affiliate_code                                                   String?                        @unique
+  invited_by_user_id                                               Int?
+  password_withdrawal                                              String?
+  rollover_active                                                  Boolean                        @default(false)
+  rollover_multiplier                                              Decimal                        @default(1.00) @db.Decimal(10, 2)
+  blogger                                                          Boolean                        @default(false)
+  banned                                                           Boolean                        @default(false)
+  status                                                           Boolean                        @default(true)
+  created_at                                                       DateTime                       @default(now())
+  updated_at                                                       DateTime
+  last_login_at                                                    DateTime?
+  banned_at                                                        DateTime?
+  jump_available                                                   Boolean                        @default(false)
+  jump_limit                                                       Int                            @default(2)
+  jump_invite_count                                                Int                            @default(0)
+  cpa_available                                                    Boolean                        @default(false)
+  min_deposit_for_cpa                                              Decimal                        @default(0.00) @db.Decimal(10, 2)
+  cpa_level_1                                                      Decimal                        @default(0.00) @db.Decimal(10, 2)
+  cpa_level_2                                                      Decimal                        @default(0.00) @db.Decimal(10, 2)
+  cpa_level_3                                                      Decimal                        @default(0.00) @db.Decimal(10, 2)
+  revshare_fake                                                    Decimal                        @default(0.00) @db.Decimal(10, 2)
+  revshare_level_1                                                 Decimal                        @default(0.00) @db.Decimal(10, 2)
+  revshare_level_2                                                 Decimal                        @default(0.00) @db.Decimal(10, 2)
+  revshare_level_3                                                 Decimal                        @default(0.00) @db.Decimal(10, 2)
+  fake_revshare                                                    Boolean                        @default(false)
+  affiliate_histories_affiliate_histories_affiliate_user_idTousers affiliate_histories[]          @relation("affiliate_histories_affiliate_user_idTousers")
+  affiliate_histories_affiliate_histories_user_idTousers           affiliate_histories[]          @relation("affiliate_histories_user_idTousers")
+  chest_withdrawls                                                 chest_withdrawls[]
+  deposit_promo_participations                                     deposit_promo_participations[]
+  deposits                                                         deposits[]
+  game_transactions                                                game_transactions[]
+  level_promo_progresses                                           level_promo_progresses[]
+  rakeback_histories                                               rakeback_histories[]
+  reedem_code_histories                                            reedem_code_histories[]
+  users                                                            users?                         @relation("usersTousers", fields: [invited_by_user_id], references: [id])
+  other_users                                                      users[]                        @relation("usersTousers")
+  vip_bonus_redemptions                                            vip_bonus_redemptions[]
+  vip_histories                                                    vip_histories[]
+  withdrawals                                                      withdrawals[]
 
-  @@index([user_id, created_at])
-  @@index([vip_level_id])
-  @@map("vip_histories")
+  @@index([affiliate_code])
+  @@index([created_at])
+  @@index([invited_by_user_id])
+  @@index([last_login_at])
+  @@index([status, banned])
 }
 
-model VipBonusRedemption {
+model vip_bonus_redemptions {
   id         Int      @id @default(autoincrement())
   user_id    Int
   bonus_type String
   amount     Decimal  @default(0.00) @db.Decimal(10, 2)
   created_at DateTime @default(now())
-  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, bonus_type, created_at])
-  @@map("vip_bonus_redemptions")
 }
 
-model Deposit {
-  id                           Int                         @id @default(autoincrement())
-  user_id                      Int
-  amount                       Decimal                     @default(0.00) @db.Decimal(10, 2)
-  status                       String                      @default("PENDING")
-  request_number               String?
-  reference                    String?
-  paid_at                      DateTime?
-  updated_at                   DateTime                    @updatedAt
-  created_at                   DateTime                    @default(now())
-  user                         User                        @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  deposit_promo_participations DepositPromoParticipation[]
+model vip_histories {
+  id           Int        @id @default(autoincrement())
+  user_id      Int
+  vip_level_id Int
+  goal         Decimal    @default(0.00) @db.Decimal(10, 2)
+  bonus        Decimal    @default(0.00) @db.Decimal(10, 2)
+  kind         String     @default("upgrade")
+  created_at   DateTime   @default(now())
+  users        users      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  vip_levels   vip_levels @relation(fields: [vip_level_id], references: [id])
 
-  @@index([user_id, created_at, status, reference])
-  @@map("deposits")
+  @@index([user_id, created_at])
+  @@index([vip_level_id])
 }
 
-model Withdrawal {
+model vip_levels {
+  id            Int             @id @default(autoincrement())
+  id_vip        Int             @default(0)
+  goal          Decimal         @default(0.00) @db.Decimal(10, 2)
+  bonus         Decimal         @default(0.00) @db.Decimal(10, 2)
+  weekly_bonus  Decimal         @default(0.00) @db.Decimal(10, 2)
+  monthly_bonus Decimal         @default(0.00) @db.Decimal(10, 2)
+  vip_histories vip_histories[]
+
+  @@index([id_vip])
+}
+
+model withdrawals {
   id             Int       @id @default(autoincrement())
   user_id        Int
   amount         Decimal   @default(0.00) @db.Decimal(10, 2)
@@ -452,142 +508,15 @@ model Withdrawal {
   reason         String?
   reference      String?
   paid_at        DateTime?
-  updated_at     DateTime  @updatedAt
+  updated_at     DateTime
   created_at     DateTime  @default(now())
-  user           User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  users          users     @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, created_at, status, reference])
-  @@map("withdrawals")
 }
 
-model LevelPromoTier {
-  id         Int               @id @default(autoincrement())
-  name       String
-  min_volume Decimal           @default(0.00) @db.Decimal(10, 2)
-  bonuses    LevelPromoBonus[]
-
-  @@map("level_promo_tiers")
-}
-
-model LevelPromoBonus {
-  id          Int            @id @default(autoincrement())
-  tier_id     Int
-  day_index   Int
-  bonus_value Decimal        @default(0.00) @db.Decimal(10, 2)
-  tier        LevelPromoTier @relation(fields: [tier_id], references: [id], onDelete: Cascade)
-
-  @@index([tier_id, day_index])
-  @@map("level_promo_bonuses")
-}
-
-model LevelPromoProgress {
-  id              Int       @id @default(autoincrement())
-  user_id         Int
-  current_day     Int       @default(0)
-  last_checkin_at DateTime?
-  created_at      DateTime  @default(now())
-  updated_at      DateTime  @updatedAt
-  user            User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-
-  @@index([user_id])
-  @@map("level_promo_progresses")
-}
-
-model Promotion {
-  id         Int       @id @default(autoincrement())
-  name       String
-  icon_url   String
-  image_url  String
-  target_url String
-  is_active  Boolean   @default(true)
-  sort_order Int       @default(0)
-  starts_at  DateTime?
-  ends_at    DateTime?
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-
-  @@map("promotions")
-}
-
-model DefaultAffiliateBonus {
-  id                  Int     @id @default(autoincrement())
-  cpa_level_1         Decimal @default(0.00) @db.Decimal(10, 2)
-  cpa_level_2         Decimal @default(0.00) @db.Decimal(10, 2)
-  cpa_level_3         Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_fake       Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_level_1    Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_level_2    Decimal @default(0.00) @db.Decimal(10, 2)
-  revshare_level_3    Decimal @default(0.00) @db.Decimal(10, 2)
-  min_deposit_for_cpa Decimal @default(0.00) @db.Decimal(10, 2)
-  fake_revshare       Boolean @default(false)
-
-  @@map("default_affiliate_bonuses")
-}
-
-model AffiliateHistory {
-  id                Int      @id @default(autoincrement())
-  user_id           Int
-  affiliate_user_id Int
-  amount            Decimal  @default(0.00) @db.Decimal(10, 2)
-  cpa_level         Int      @default(0)
-  revshare_level    Int      @default(0)
-  type              String
-  created_at        DateTime @default(now())
-  user              User     @relation("AffiliateUser", fields: [user_id], references: [id], onDelete: Cascade)
-  affiliate         User     @relation("AffiliateReferrer", fields: [affiliate_user_id], references: [id])
-
-  @@index([user_id, created_at])
-  @@index([affiliate_user_id])
-  @@map("affiliate_histories")
-}
-
-// Gateway Payments Credentials
-model PradaPayment {
-  id         Int      @id @default(autoincrement())
-  base_url   String   @default("https://api.pradapay.com")
-  api_key    String
-  active     Boolean  @default(true)
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  @@map("prada_payments")
-}
-
-// Game Providers Credentials
-model PPCloneProvider {
-  id           Int      @id @default(autoincrement())
-  base_url     String   @default("https://api.pragmaticslots.fun/")
-  agent_code   String
-  agent_secret String
-  active       Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  @@map("pp_clone_providers")
-}
-
-model PGCloneProvider {
-  id           Int      @id @default(autoincrement())
-  base_url     String   @default("https://api.apipokergames.site/api/v1/")
-  agent_code   String
-  agent_secret String
-  agent_token  String
-  active       Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  @@map("pg_clone_providers")
-}
-
-model PokerProvider {
-  id           Int      @id @default(autoincrement())
-  base_url     String   @default("https://pokersgamessistemas.com/api/v1/")
-  agent_code   String
-  agent_secret String
-  agent_token  String
-  active       Boolean  @default(true)
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
-
-  @@map("poker_providers")
+enum games_game_type {
+  SLOTS
+  FISHING
+  CASINO
 }
