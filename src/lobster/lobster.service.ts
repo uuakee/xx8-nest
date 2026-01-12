@@ -1562,6 +1562,93 @@ export class LobsterService {
     };
   }
 
+  async adminApproveWithdrawal(id: number) {
+    const withdrawal = await this.prisma.withdrawal.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        user_id: true,
+        amount: true,
+        status: true,
+        user_name: true,
+        user_document: true,
+        user_keypix: true,
+      },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('withdrawal_not_found');
+    }
+
+    if (withdrawal.status !== 'PENDING') {
+      throw new BadRequestException('withdrawal_not_pending');
+    }
+
+    if (
+      !withdrawal.user_name ||
+      !withdrawal.user_document ||
+      !withdrawal.user_keypix
+    ) {
+      throw new BadRequestException('withdrawal_missing_cashout_data');
+    }
+
+    const response = await this.pradaGateway.createCashout({
+      name: withdrawal.user_name,
+      cpf: withdrawal.user_document,
+      keypix: withdrawal.user_keypix,
+      amount: withdrawal.amount,
+    });
+
+    const idTransaction = (response as any)?.idTransaction ?? null;
+    const now = new Date();
+
+    await this.prisma.withdrawal.update({
+      where: { id },
+      data: {
+        status: 'PAID',
+        reference: idTransaction,
+        paid_at: now,
+      },
+    });
+
+    return this.prisma.withdrawal.findUnique({ where: { id } });
+  }
+
+  async adminRejectWithdrawal(id: number, reason?: string) {
+    const withdrawal = await this.prisma.withdrawal.findUnique({
+      where: { id },
+    });
+
+    if (!withdrawal) {
+      throw new NotFoundException('withdrawal_not_found');
+    }
+
+    if (withdrawal.status !== 'PENDING') {
+      throw new BadRequestException('withdrawal_not_pending');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.withdrawal.update({
+        where: { id },
+        data: {
+          status: 'REJECTED',
+          reason,
+        },
+      });
+
+      await tx.user.update({
+        where: { id: withdrawal.user_id },
+        data: {
+          balance: {
+            increment: withdrawal.amount,
+          },
+        },
+      });
+    });
+
+    return this.prisma.withdrawal.findUnique({ where: { id } });
+  }
+
   async adminListChestWithdrawals(filters: AdminListChestWithdrawalsDto) {
     const rawPage = filters.page ?? 1;
     const rawPageSize = filters.page_size ?? 20;

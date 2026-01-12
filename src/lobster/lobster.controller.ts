@@ -485,6 +485,21 @@ export class LobsterController {
   }
 
   @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('withdrawals/:id/approve')
+  adminApproveWithdrawal(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.adminApproveWithdrawal(id);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Patch('withdrawals/:id/reject')
+  adminRejectWithdrawal(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: AdminRejectWithdrawalDto,
+  ) {
+    return this.lobsterService.adminRejectWithdrawal(id, dto.reason);
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
   @Get('chest-withdrawals')
   adminListChestWithdrawals(@Query() query: AdminListChestWithdrawalsDto) {
     return this.lobsterService.adminListChestWithdrawals(query);
