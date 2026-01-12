@@ -192,6 +192,8 @@ export class LobsterService {
           password: passwordHash,
           affiliate_code: affiliateCode,
           invited_by_user_id: invitedByUserId,
+          rollover_active: true,
+          rollover_multiplier: 2,
         },
         select: {
           id: true,
