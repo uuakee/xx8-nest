@@ -146,3 +146,113 @@ Objetivo: listar promoções com:
 - **Mensage**
   - Mensagens simples de sistema, sem link/imagem estruturados.
 
+
+
+--
+
+Resumo do que foi implementado:
+
+  1. ✅ Nova Tabela RolloverRequirement
+
+  - Criado model no Prisma Schema com auditoria completa
+  - Migration SQL gerada em prisma/migrations/20260113000000_add_rollover_audit_system/migration.sql
+  - Rastreia todos os rollovers: depósitos regulares, bônus e manuais
+  - Campos principais: amount_required, amount_completed, source_type, status
+
+  2. ✅ Configurações no Settings
+
+  Três novos campos adicionados:
+  - default_rollover_active (Boolean, default: true)
+  - default_rollover_multiplier (Decimal, default: 2.00)
+  - new_user_roullete (Boolean, default: true)
+
+  Os campos já estão disponíveis nas rotas:
+  - GET /lobster/setting - retorna configurações
+  - PATCH /lobster/setting - atualiza configurações
+
+  3. ✅ Lógica de Rollover Automático (Webhook)
+
+  Quando um depósito é confirmado (prada-payment.gateway.ts):
+  - Verifica configurações de rollover (user ou settings)
+  - Cria RolloverRequirement para o depósito
+  - Exemplo: depósito R$100 com multiplier 2x = rollover de R$200
+
+  4. ✅ Bônus por Depósito Automático (Webhook)
+
+  - Verifica eventos de promoção ativos
+  - Encontra tier correspondente ao valor depositado
+  - Credita bônus automaticamente no saldo
+  - Cria RolloverRequirement separado para o bônus
+  - Exemplo: deposita R$100, ganha R$50, precisa cumprir rollover adicional de R$100
+
+  5. ✅ Nova Validação de Saque
+
+  No users.service.ts:
+  - Busca todos os rollovers ATIVOS do usuário
+  - Se não houver, libera saque imediatamente
+  - Se houver, valida volume total de apostas
+  - Marca requisitos como COMPLETED em ordem FIFO
+  - Mantém auditoria completa
+
+  6. ✅ Novo Endpoint de Consulta
+
+  GET /users/rollover-status retorna:
+  {
+    "has_rollover": true,
+    "total_required": 300,
+    "total_completed": 150,
+    "remaining": 150,
+    "requirements": [
+      {
+        "id": 1,
+        "source_type": "deposit",
+        "amount_required": 200,
+        "amount_completed": 100,
+        "remaining": 100,
+        "created_at": "2026-01-13T..."
+      },
+      {
+        "id": 2,
+        "source_type": "deposit_bonus",
+        "amount_required": 100,
+        "amount_completed": 50,
+        "remaining": 50,
+        "created_at": "2026-01-13T..."
+      }
+    ]
+  }
+
+  📝 Próximos Passos:
+
+  1. Aplicar a Migration:
+  npx prisma migrate deploy
+  # ou
+  npx prisma migrate dev
+
+  2. Gerar o Prisma Client:
+  npx prisma generate
+
+  3. Configurar Settings (via Lobster Admin):
+  PATCH /lobster/setting
+  {
+    "default_rollover_active": true,
+    "default_rollover_multiplier": 2,
+    "new_user_roullete": true
+  }
+
+  4. Testar o Fluxo Completo:
+  - Criar evento de promoção no admin
+  - Simular webhook de depósito
+  - Verificar rollover criado: SELECT * FROM rollover_requirements;
+  - Testar consulta: GET /users/rollover-status
+  - Simular apostas e testar saque
+
+  🔍 Pontos Importantes:
+
+  - Clean Slate: Apenas novos depósitos criam rollovers (usuários antigos sem requirement = sem rollover)
+  - FIFO: Volume de apostas preenche requisitos do mais antigo para o mais recente
+  - Múltiplos Rollovers: Todos os requisitos ATIVOS são somados na validação
+  - Auditoria Completa: Cada rollover guarda snapshot do multiplier usado
+  - Transparência: Usuários podem consultar exatamente quanto falta via API
+
+  O sistema está pronto para uso! 🚀

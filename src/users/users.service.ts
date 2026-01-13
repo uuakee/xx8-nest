@@ -107,52 +107,79 @@ export class UsersService {
         throw new BadRequestException('amount_above_max_withdrawal');
       }
 
-      const lastDeposit = await tx.deposit.findFirst({
-        where: {
-          user_id: user.id,
-          status: 'PAID',
-        },
-        orderBy: {
-          created_at: 'desc',
-        },
-      });
-
-      if (!lastDeposit) {
-        throw new BadRequestException('no_deposit_for_withdrawal');
-      }
-
-      const baseRolloverRequired = this.getDecimalNumber(lastDeposit.amount);
-
-      const rawMultiplier = user.rollover_active
-        ? this.getDecimalNumber(
-            user.rollover_multiplier as unknown as Prisma.Decimal,
-          )
-        : 1;
-
-      const effectiveMultiplier =
-        rawMultiplier && rawMultiplier > 0 ? rawMultiplier : 1;
-
-      const rolloverRequired = baseRolloverRequired * effectiveMultiplier;
-
-      const rolloverAgg = await (tx as any).gameTransaction.aggregate({
-        _sum: {
-          amount: true,
-        },
-        where: {
-          user_id: user.id,
-          action: 'bet',
-          created_at: {
-            gte: lastDeposit.created_at,
+      // New rollover validation using rollover_requirements table
+      const activeRequirements = await (tx as any).rolloverRequirement.findMany(
+        {
+          where: {
+            user_id: userId,
+            status: 'ACTIVE',
           },
+          orderBy: { created_at: 'asc' },
         },
-      });
+      );
 
-      const rolloverVolume = rolloverAgg?._sum?.amount
-        ? this.getDecimalNumber(rolloverAgg._sum.amount as Prisma.Decimal)
-        : 0;
+      // If user has active rollover requirements, validate them
+      if (activeRequirements.length > 0) {
+        // Calculate total remaining rollover
+        let totalRequired = 0;
+        for (const req of activeRequirements) {
+          const required = this.getDecimalNumber(req.amount_required);
+          const completed = this.getDecimalNumber(req.amount_completed);
+          totalRequired += required - completed;
+        }
 
-      if (rolloverVolume < rolloverRequired) {
-        throw new BadRequestException('rollover_not_completed');
+        // Get bet volume since earliest requirement
+        const earliestCreated = activeRequirements[0].created_at;
+        const betVolumeAgg = await (tx as any).gameTransaction.aggregate({
+          _sum: { amount: true },
+          where: {
+            user_id: userId,
+            action: 'bet',
+            created_at: { gte: earliestCreated },
+          },
+        });
+
+        const totalBetVolume = betVolumeAgg?._sum?.amount
+          ? this.getDecimalNumber(betVolumeAgg._sum.amount as Prisma.Decimal)
+          : 0;
+
+        // Check if rollover is completed
+        if (totalBetVolume < totalRequired) {
+          throw new BadRequestException('rollover_not_completed');
+        }
+
+        // Mark requirements as completed (FIFO)
+        let remainingVolume = totalBetVolume;
+        for (const req of activeRequirements) {
+          const required = this.getDecimalNumber(req.amount_required);
+          const completed = this.getDecimalNumber(req.amount_completed);
+          const needed = required - completed;
+
+          if (remainingVolume >= needed) {
+            // Complete this requirement
+            await (tx as any).rolloverRequirement.update({
+              where: { id: req.id },
+              data: {
+                amount_completed: req.amount_required,
+                status: 'COMPLETED',
+                completed_at: new Date(),
+              },
+            });
+            remainingVolume -= needed;
+          } else {
+            // Partial completion
+            await (tx as any).rolloverRequirement.update({
+              where: { id: req.id },
+              data: {
+                amount_completed: {
+                  increment: new Prisma.Decimal(remainingVolume),
+                },
+              },
+            });
+            remainingVolume = 0;
+            break;
+          }
+        }
       }
 
       const balanceNumber = this.getDecimalNumber(user.balance);
@@ -1498,5 +1525,54 @@ export class UsersService {
         message: 'document_updated_successfully',
       };
     });
+  }
+
+  async getUserRolloverStatus(userId: number) {
+    const requirements = await (this.prisma as any).rolloverRequirement.findMany(
+      {
+        where: {
+          user_id: userId,
+          status: 'ACTIVE',
+        },
+        orderBy: { created_at: 'asc' },
+      },
+    );
+
+    if (requirements.length === 0) {
+      return {
+        has_rollover: false,
+        total_required: 0,
+        total_completed: 0,
+        remaining: 0,
+        requirements: [],
+      };
+    }
+
+    let totalRequired = 0;
+    let totalCompleted = 0;
+
+    for (const req of requirements) {
+      totalRequired += this.getDecimalNumber(req.amount_required);
+      totalCompleted += this.getDecimalNumber(req.amount_completed);
+    }
+
+    return {
+      has_rollover: true,
+      total_required: totalRequired,
+      total_completed: totalCompleted,
+      remaining: Math.max(0, totalRequired - totalCompleted),
+      requirements: requirements.map((req) => ({
+        id: req.id,
+        source_type: req.source_type,
+        amount_required: this.getDecimalNumber(req.amount_required),
+        amount_completed: this.getDecimalNumber(req.amount_completed),
+        remaining: Math.max(
+          0,
+          this.getDecimalNumber(req.amount_required) -
+            this.getDecimalNumber(req.amount_completed),
+        ),
+        created_at: req.created_at,
+      })),
+    };
   }
 }

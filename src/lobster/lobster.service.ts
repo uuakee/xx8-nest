@@ -2771,4 +2771,266 @@ export class LobsterService {
       generated_at: now.toISOString(),
     };
   }
+
+  async adminListAffiliators() {
+    const affiliators = await this.prisma.user.findMany({
+      where: {
+        invitees: {
+          some: {},
+        },
+      },
+      select: {
+        id: true,
+        pid: true,
+        phone: true,
+        document: true,
+        affiliate_code: true,
+        balance: true,
+        affiliate_balance: true,
+        status: true,
+        banned: true,
+        jump_available: true,
+        jump_limit: true,
+        jump_invite_count: true,
+        cpa_available: true,
+        cpa_level_1: true,
+        cpa_level_2: true,
+        cpa_level_3: true,
+        revshare_level_1: true,
+        revshare_level_2: true,
+        revshare_level_3: true,
+        created_at: true,
+        _count: {
+          select: {
+            invitees: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    const result = affiliators.map((user) => ({
+      ...user,
+      total_invitees: user._count.invitees,
+      _count: undefined,
+    }));
+
+    return result;
+  }
+
+  async adminGetAffiliateTree(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        pid: true,
+        phone: true,
+        document: true,
+        affiliate_code: true,
+        balance: true,
+        affiliate_balance: true,
+        status: true,
+        banned: true,
+        jump_available: true,
+        jump_limit: true,
+        jump_invite_count: true,
+        cpa_available: true,
+        min_deposit_for_cpa: true,
+        cpa_level_1: true,
+        cpa_level_2: true,
+        cpa_level_3: true,
+        revshare_level_1: true,
+        revshare_level_2: true,
+        revshare_level_3: true,
+        fake_revshare: true,
+        revshare_fake: true,
+        created_at: true,
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException('user_not_found');
+    }
+
+    const n1Users = await this.prisma.user.findMany({
+      where: {
+        invited_by_user_id: userId,
+      },
+      select: {
+        id: true,
+        pid: true,
+        phone: true,
+        document: true,
+        affiliate_code: true,
+        balance: true,
+        status: true,
+        banned: true,
+        created_at: true,
+        _count: {
+          select: {
+            invitees: true,
+          },
+        },
+      },
+      orderBy: {
+        created_at: 'desc',
+      },
+    });
+
+    const n1Ids = n1Users.map((u) => u.id);
+
+    const n2Users =
+      n1Ids.length > 0
+        ? await this.prisma.user.findMany({
+            where: {
+              invited_by_user_id: { in: n1Ids },
+            },
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+              balance: true,
+              status: true,
+              banned: true,
+              invited_by_user_id: true,
+              created_at: true,
+              _count: {
+                select: {
+                  invitees: true,
+                },
+              },
+            },
+            orderBy: {
+              created_at: 'desc',
+            },
+          })
+        : [];
+
+    const n2Ids = n2Users.map((u) => u.id);
+
+    const n3Users =
+      n2Ids.length > 0
+        ? await this.prisma.user.findMany({
+            where: {
+              invited_by_user_id: { in: n2Ids },
+            },
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+              document: true,
+              balance: true,
+              status: true,
+              banned: true,
+              invited_by_user_id: true,
+              created_at: true,
+            },
+            orderBy: {
+              created_at: 'desc',
+            },
+          })
+        : [];
+
+    const n3Ids = n3Users.map((u) => u.id);
+    const allAffiliateUserIds = [...n1Ids, ...n2Ids, ...n3Ids];
+
+    const commissions =
+      allAffiliateUserIds.length > 0
+        ? await this.prisma.affiliateHistory.findMany({
+            where: {
+              user_id: userId,
+              affiliate_user_id: { in: allAffiliateUserIds },
+            },
+            select: {
+              id: true,
+              affiliate_user_id: true,
+              amount: true,
+              cpa_level: true,
+              revshare_level: true,
+              type: true,
+              created_at: true,
+            },
+            orderBy: {
+              created_at: 'desc',
+            },
+          })
+        : [];
+
+    const commissionsGrouped = commissions.reduce((acc, comm) => {
+      if (!acc[comm.affiliate_user_id]) {
+        acc[comm.affiliate_user_id] = {
+          total_amount: 0,
+          total_cpa: 0,
+          total_revshare: 0,
+          commissions: [],
+        };
+      }
+      acc[comm.affiliate_user_id].total_amount += Number(comm.amount);
+      if (comm.type === 'CPA') {
+        acc[comm.affiliate_user_id].total_cpa += Number(comm.amount);
+      } else if (comm.type === 'revshare') {
+        acc[comm.affiliate_user_id].total_revshare += Number(comm.amount);
+      }
+      acc[comm.affiliate_user_id].commissions.push(comm);
+      return acc;
+    }, {});
+
+    const totalCommissions = commissions.reduce(
+      (sum, comm) => sum + Number(comm.amount),
+      0,
+    );
+    const totalCpa = commissions
+      .filter((c) => c.type === 'CPA')
+      .reduce((sum, comm) => sum + Number(comm.amount), 0);
+    const totalRevshare = commissions
+      .filter((c) => c.type === 'revshare')
+      .reduce((sum, comm) => sum + Number(comm.amount), 0);
+
+    return {
+      user,
+      summary: {
+        total_n1: n1Users.length,
+        total_n2: n2Users.length,
+        total_n3: n3Users.length,
+        total_affiliates: allAffiliateUserIds.length,
+        total_commissions: totalCommissions,
+        total_cpa: totalCpa,
+        total_revshare: totalRevshare,
+      },
+      n1: n1Users.map((u) => ({
+        ...u,
+        total_invitees: u._count.invitees,
+        commissions: commissionsGrouped[u.id] || {
+          total_amount: 0,
+          total_cpa: 0,
+          total_revshare: 0,
+          commissions: [],
+        },
+        _count: undefined,
+      })),
+      n2: n2Users.map((u) => ({
+        ...u,
+        total_invitees: u._count.invitees,
+        commissions: commissionsGrouped[u.id] || {
+          total_amount: 0,
+          total_cpa: 0,
+          total_revshare: 0,
+          commissions: [],
+        },
+        _count: undefined,
+      })),
+      n3: n3Users.map((u) => ({
+        ...u,
+        commissions: commissionsGrouped[u.id] || {
+          total_amount: 0,
+          total_cpa: 0,
+          total_revshare: 0,
+          commissions: [],
+        },
+      })),
+    };
+  }
 }

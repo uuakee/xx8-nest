@@ -147,4 +147,11 @@ export class UsersController {
     const u = req.user ?? UsersController.defaultUserShape;
     return this.usersService.updateDocument(u.sub, dto);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('rollover-status')
+  rolloverStatus(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.getUserRolloverStatus(u.sub);
+  }
 }

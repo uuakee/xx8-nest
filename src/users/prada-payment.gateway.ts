@@ -269,6 +269,41 @@ export class PradaPaymentGatewayService {
           },
         });
 
+        // Create rollover requirement for deposit
+        const settings = await tx.setting.findUnique({ where: { id: 1 } });
+        const userRollover = await tx.user.findUnique({
+          where: { id: deposit.user_id },
+          select: { rollover_active: true, rollover_multiplier: true },
+        });
+
+        const needsRollover =
+          userRollover?.rollover_active ||
+          settings?.default_rollover_active ||
+          false;
+
+        if (needsRollover) {
+          const multiplier = userRollover?.rollover_active
+            ? this.getDecimalNumber(
+                userRollover.rollover_multiplier as Prisma.Decimal,
+              )
+            : this.getDecimalNumber(
+                settings?.default_rollover_multiplier as Prisma.Decimal,
+              ) || 2;
+
+          const amountRequired = this.getDecimalNumber(deposit.amount) * multiplier;
+
+          await (tx as any).rolloverRequirement.create({
+            data: {
+              user_id: deposit.user_id,
+              source_type: 'deposit',
+              source_id: deposit.id,
+              amount_required: new Prisma.Decimal(amountRequired),
+              multiplier: new Prisma.Decimal(multiplier),
+              status: 'ACTIVE',
+            },
+          });
+        }
+
         const rootInviterId = user.invited_by_user_id;
         if (rootInviterId) {
           const existingCpa = await tx.affiliateHistory.findFirst({
@@ -350,6 +385,74 @@ export class PradaPaymentGatewayService {
 
               currentAffiliateId = (affiliate as User).invited_by_user_id;
               level += 1;
+            }
+          }
+        }
+
+        // Process deposit bonus promotion
+        const activeEvent = await tx.depositPromoEvent.findFirst({
+          where: {
+            is_active: true,
+            start_date: { lte: now },
+            end_date: { gte: now },
+          },
+          include: {
+            tiers: {
+              where: { is_active: true },
+              orderBy: { deposit_amount: 'desc' },
+            },
+          },
+        });
+
+        if (activeEvent && activeEvent.tiers.length > 0) {
+          const depositAmountNumber = this.getDecimalNumber(deposit.amount);
+
+          const matchingTier = activeEvent.tiers.find(
+            (tier) =>
+              depositAmountNumber >= this.getDecimalNumber(tier.deposit_amount),
+          );
+
+          if (matchingTier) {
+            const bonusAmountNumber = this.getDecimalNumber(
+              matchingTier.bonus_amount,
+            );
+
+            if (bonusAmountNumber > 0) {
+              const participation = await tx.depositPromoParticipation.create({
+                data: {
+                  user_id: deposit.user_id,
+                  tier_id: matchingTier.id,
+                  deposit_id: deposit.id,
+                  promo_date: now,
+                },
+              });
+
+              await tx.user.update({
+                where: { id: deposit.user_id },
+                data: {
+                  balance: { increment: matchingTier.bonus_amount },
+                },
+              });
+
+              const rolloverAmountNumber = this.getDecimalNumber(
+                matchingTier.rollover_amount,
+              );
+
+              if (rolloverAmountNumber > 0) {
+                const bonusMultiplier =
+                  rolloverAmountNumber / bonusAmountNumber;
+
+                await (tx as any).rolloverRequirement.create({
+                  data: {
+                    user_id: deposit.user_id,
+                    source_type: 'deposit_bonus',
+                    source_id: participation.id,
+                    amount_required: matchingTier.rollover_amount,
+                    multiplier: new Prisma.Decimal(bonusMultiplier),
+                    status: 'ACTIVE',
+                  },
+                });
+              }
             }
           }
         }

@@ -73,4 +73,20 @@ export class UpdateSettingDto {
   @Type(() => Boolean)
   @IsBoolean()
   need_document?: boolean;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  default_rollover_active?: boolean;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  default_rollover_multiplier?: number;
+
+  @IsOptional()
+  @Type(() => Boolean)
+  @IsBoolean()
+  new_user_roullete?: boolean;
 }

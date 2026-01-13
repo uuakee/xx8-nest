@@ -710,4 +710,16 @@ export class LobsterController {
   ) {
     return this.lobsterService.adminListDepositPromoParticipations(query);
   }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('affiliates')
+  adminListAffiliators() {
+    return this.lobsterService.adminListAffiliators();
+  }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('affiliates/:id/tree')
+  adminGetAffiliateTree(@Param('id', ParseIntPipe) id: number) {
+    return this.lobsterService.adminGetAffiliateTree(id);
+  }
 }
