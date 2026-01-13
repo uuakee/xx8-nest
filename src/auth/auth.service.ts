@@ -80,7 +80,11 @@ export class AuthService {
     // Buscar configuração do sistema
     const settings = await this.prisma.setting.findUnique({
       where: { id: 1 },
-      select: { need_document: true },
+      select: {
+        need_document: true,
+        default_rollover_active: true,
+        default_rollover_multiplier: true,
+      },
     });
 
     // Validar documento baseado na configuração
@@ -159,8 +163,8 @@ export class AuthService {
           password: passwordHash,
           affiliate_code: affiliateCode,
           invited_by_user_id: invitedByUserId,
-          rollover_active: true,
-          rollover_multiplier: 2,
+          rollover_active: settings?.default_rollover_active ?? true,
+          rollover_multiplier: settings?.default_rollover_multiplier ?? 2,
           min_deposit_for_cpa: defaultAffiliate?.min_deposit_for_cpa,
           cpa_level_1: defaultAffiliate?.cpa_level_1,
           cpa_level_2: defaultAffiliate?.cpa_level_2,

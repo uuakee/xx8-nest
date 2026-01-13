@@ -141,6 +141,15 @@ export class LobsterService {
     const affiliateCode = await this.generateAffiliateCode();
     const passwordHash = await hash(dto.password, 10);
 
+    // Buscar configurações padrão de rollover
+    const settings = await this.prisma.setting.findUnique({
+      where: { id: 1 },
+      select: {
+        default_rollover_active: true,
+        default_rollover_multiplier: true,
+      },
+    });
+
     const user = await this.prisma.$transaction(async (tx) => {
       let invitedByUserId: number | null = null;
 
@@ -192,8 +201,8 @@ export class LobsterService {
           password: passwordHash,
           affiliate_code: affiliateCode,
           invited_by_user_id: invitedByUserId,
-          rollover_active: true,
-          rollover_multiplier: 2,
+          rollover_active: settings?.default_rollover_active ?? true,
+          rollover_multiplier: settings?.default_rollover_multiplier ?? 2,
         },
         select: {
           id: true,
