@@ -1,103 +1,77 @@
-# Changelog
+📋 CHECKLIST DE MIGRAÇÃO
+Pré-Migração
+ Schema Prisma já configurado para MySQL
+ Verificar versão MySQL (mínimo 5.7, recomendado 8.0+)
+ Backup completo do banco PostgreSQL atual
+ Criar banco MySQL de destino com collation correto
+Durante Migração
+ Atualizar DATABASE_URL no .env
+ Executar npx prisma migrate deploy
+ Executar npx prisma generate
+ Migrar dados históricos (se houver)
+ Resetar sequences de auto-increment
+Pós-Migração (Testes Críticos)
+ Testar transação de saque com rollover
+ Testar upgrade de VIP (aggregate complexo)
+ Testar resgates de bônus VIP
+ Testar webhook de provedores de jogos
+ Testar criação de depósito
+ Validar saldos com prisma studio
+ Executar suite de testes (se houver)
+🚀 COMANDOS DE MIGRAÇÃO
 
-## [13/01/2026] - Correções Importantes
+# 1. Verificar versão MySQL
+mysql --version  # Deve ser >= 5.7
 
-### 🔧 Correção: Multiplicador de Rollover não Respeitava Configuração
+# 2. Criar banco de dados
+mysql -u root -p
+CREATE DATABASE xx8_nest CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
-**Problema:**
-- Quando um usuário se registrava, o `rollover_multiplier` vinha sempre como **2** (hardcoded)
-- Mesmo alterando o valor de `default_rollover_multiplier` nas configurações (settings) para 3, os novos usuários continuavam recebendo 2
+# 3. Atualizar .env
+DATABASE_URL="mysql://user:password@localhost:3306/xx8_nest"
 
-**Causa:**
-- O código de registro (tanto público quanto admin) estava usando valores fixos ao invés de buscar da tabela `settings`
-- Linhas afetadas:
-  - `src/auth/auth.service.ts:163` (registro público)
-  - `src/lobster/lobster.service.ts:196` (registro admin)
+# 4. Executar migrações
+npx prisma migrate deploy
 
-**Solução:**
-- Modificado para buscar as configurações de rollover da tabela `settings`:
-  - `default_rollover_active` (se rollover está ativo)
-  - `default_rollover_multiplier` (multiplicador padrão)
-- Agora os novos usuários recebem as configurações corretas do sistema
+# 5. Gerar Prisma Client
+npx prisma generate
 
-**Arquivos Modificados:**
-- `src/auth/auth.service.ts` - Registro de usuário público
-- `src/lobster/lobster.service.ts` - Criação de usuário pelo admin
+# 6. Validar schema
+npx prisma db pull
+npx prisma validate
 
-**Como Configurar:**
-1. Acesse o painel admin
-2. Vá em Configurações (Settings)
-3. Altere `default_rollover_multiplier` para o valor desejado (ex: 3)
-4. Todos os novos usuários registrados a partir de agora receberão esse multiplicador
+# 7. Abrir Prisma Studio (visual)
+npx prisma studio
+📊 ESTIMATIVA DE ESFORÇO
+Tarefa	Tempo Estimado	Complexidade
+Setup banco MySQL	30 min	Baixa
+Executar migrações Prisma	15 min	Baixa
+Migrar dados históricos	1-2 horas	Média
+Testes de transações críticas	1 hora	Média
+Validação completa	30 min	Baixa
+TOTAL	3-4 horas	Baixa
+✅ RISCOS E MITIGAÇÃO
+Risco	Probabilidade	Impacto	Mitigação
+Perda de dados	Baixa	Alto	Backup completo antes da migração
+Inconsistência de saldos	Baixa	Alto	Validar com queries de soma total
+Problemas em transações	Muito Baixa	Alto	Testar fluxos críticos em staging
+Case sensitivity	Baixa	Baixo	Código já trata corretamente
+Performance	Baixa	Médio	Monitorar queries lentas
+🎯 RECOMENDAÇÃO FINAL
+✅ A MIGRAÇÃO É TOTALMENTE VIÁVEL
 
-**Retroativo:**
-Essa mudança **não afeta** usuários já existentes. Para atualizar usuários existentes:
-```sql
--- Atualizar todos os usuários para o novo multiplicador
-UPDATE users
-SET rollover_multiplier = 3
-WHERE rollover_multiplier = 2;
+Razões:
 
--- Ou atualizar apenas usuários específicos
-UPDATE users
-SET rollover_multiplier = 3
-WHERE id IN (1, 2, 3);
-```
+Schema Prisma já está configurado para MySQL
+Nenhuma query raw SQL ou feature específica de PostgreSQL
+Todas as transações ACID são compatíveis
+Tipos de dados totalmente suportados
+Prisma ORM abstrai diferenças entre bancos
+Código não depende de features específicas do PostgreSQL
+Próximos passos sugeridos:
 
----
-
-## [13/01/2026] - Novas Features
-
-### ✨ Novas Rotas de Afiliação para Admin
-
-**Rota 1: Listar Afiliadores**
-- **Endpoint:** `GET /lobster/affiliates`
-- **Descrição:** Lista todos os usuários que possuem pelo menos 1 afiliado
-- **Retorna:**
-  - Dados completos do afiliador
-  - Total de indicados
-  - Configurações de jump
-  - Taxas de CPA e revshare
-
-**Rota 2: Árvore de Afiliação**
-- **Endpoint:** `GET /lobster/affiliates/:id/tree`
-- **Descrição:** Retorna a árvore completa de afiliados de um usuário específico
-- **Retorna:**
-  - Dados do afiliador principal
-  - Lista de N1 (indicações diretas)
-  - Lista de N2 (indicações indiretas - nível 2)
-  - Lista de N3 (indicações indiretas - nível 3)
-  - Resumo de comissões por usuário
-  - Total de comissões CPA e revshare
-
-**Arquivos:**
-- `src/lobster/lobster.controller.ts` - Endpoints
-- `src/lobster/lobster.service.ts` - Lógica de negócio
-
----
-
-## [13/01/2026] - Correções de Infraestrutura
-
-### 🔧 Correção: Erro de Sequência no Registro de Usuários
-
-**Problema:**
-- Erro ao registrar: `Unique constraint failed on the fields: (id)`
-- Código P2002
-
-**Solução:**
-- Criado script `fix-all-sequences.sql` para corrigir sequências desincronizadas
-- Criado arquivo `TROUBLESHOOTING.md` com documentação completa
-
-**Como Usar:**
-```bash
-# Corrigir todas as sequências
-PGPASSWORD="senha" psql -h host -p porta -U user -d database -f fix-all-sequences.sql
-```
-
----
-
-## Observações
-
-- Sempre execute `npx prisma generate` após modificar o schema do Prisma
-- Mantenha backups antes de executar scripts SQL de correção
-- Teste em ambiente de desenvolvimento antes de aplicar em produção
+Criar ambiente de staging com MySQL
+Executar migrações em staging
+Rodar testes completos
+Validar dados com Prisma Studio
+Planejar janela de migração em produção

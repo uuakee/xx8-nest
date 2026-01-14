@@ -9,7 +9,12 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { GameType } from '@prisma/client';
+
+export enum GameTypeDto {
+  SLOTS = 'SLOTS',
+  FISHING = 'FISHING',
+  CASINO = 'CASINO',
+}
 
 export class CreateGameDto {
   @IsString()
@@ -33,8 +38,8 @@ export class CreateGameDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(GameType)
-  game_type?: GameType;
+  @IsEnum(GameTypeDto)
+  game_type?: GameTypeDto;
 
   @IsOptional()
   @IsString()

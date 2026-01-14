@@ -260,10 +260,10 @@ export class LobsterService {
     if (filters.search) {
       const q = filters.search;
       where.OR = [
-        { pid: { contains: q, mode: 'insensitive' } },
-        { phone: { contains: q, mode: 'insensitive' } },
-        { document: { contains: q, mode: 'insensitive' } },
-        { affiliate_code: { contains: q, mode: 'insensitive' } },
+        { pid: { contains: q } },
+        { phone: { contains: q } },
+        { document: { contains: q } },
+        { affiliate_code: { contains: q } },
       ];
     }
 
@@ -723,7 +723,6 @@ export class LobsterService {
             {
               name: {
                 contains: 'Quente',
-                mode: 'insensitive',
               },
             },
           ],
@@ -1414,8 +1413,8 @@ export class LobsterService {
     if (filters.search) {
       const q = filters.search;
       where.OR = [
-        { reference: { contains: q, mode: 'insensitive' } },
-        { request_number: { contains: q, mode: 'insensitive' } },
+        { reference: { contains: q } },
+        { request_number: { contains: q } },
       ];
     }
 
@@ -1507,8 +1506,8 @@ export class LobsterService {
     if (filters.search) {
       const q = filters.search;
       where.OR = [
-        { reference: { contains: q, mode: 'insensitive' } },
-        { request_number: { contains: q, mode: 'insensitive' } },
+        { reference: { contains: q } },
+        { request_number: { contains: q } },
       ];
     }
 

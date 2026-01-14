@@ -9,7 +9,7 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
-import { GameType } from '@prisma/client';
+import { GameTypeDto } from './create-game.dto';
 
 export class UpdateGameDto {
   @IsOptional()
@@ -35,8 +35,8 @@ export class UpdateGameDto {
   description?: string;
 
   @IsOptional()
-  @IsEnum(GameType)
-  game_type?: GameType;
+  @IsEnum(GameTypeDto)
+  game_type?: GameTypeDto;
 
   @IsOptional()
   @IsString()
