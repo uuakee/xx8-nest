@@ -722,4 +722,28 @@ export class LobsterController {
   adminGetAffiliateTree(@Param('id', ParseIntPipe) id: number) {
     return this.lobsterService.adminGetAffiliateTree(id);
   }
+
+  @UseGuards(AuthGuard('admin-jwt'))
+  @Get('game-audit')
+  adminGetGameAudit(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('user_id') userId?: string,
+    @Query('action') action?: string,
+    @Query('provider') provider?: string,
+    @Query('game_uuid') gameUuid?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.lobsterService.adminGetGameAudit({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      user_id: userId ? Number(userId) : undefined,
+      action,
+      provider,
+      game_uuid: gameUuid,
+      from,
+      to,
+    });
+  }
 }

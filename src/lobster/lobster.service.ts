@@ -3042,4 +3042,169 @@ export class LobsterService {
       })),
     };
   }
+
+  async adminGetGameAudit(filters: {
+    page?: number;
+    limit?: number;
+    user_id?: number;
+    action?: string;
+    provider?: string;
+    game_uuid?: string;
+    from?: string;
+    to?: string;
+  }) {
+    const page = filters.page && filters.page > 0 ? filters.page : 1;
+    const limit = filters.limit && filters.limit > 0 ? filters.limit : 50;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+
+    if (filters.user_id) {
+      where.user_id = filters.user_id;
+    }
+
+    if (filters.action) {
+      where.action = filters.action;
+    }
+
+    if (filters.provider) {
+      where.provider = filters.provider;
+    }
+
+    if (filters.game_uuid) {
+      where.game_uuid = filters.game_uuid;
+    }
+
+    if (filters.from || filters.to) {
+      where.created_at = {};
+      if (filters.from) {
+        const fromDate = new Date(filters.from);
+        if (!isNaN(fromDate.getTime())) {
+          where.created_at.gte = fromDate;
+        }
+      }
+      if (filters.to) {
+        const toDate = new Date(filters.to);
+        if (!isNaN(toDate.getTime())) {
+          where.created_at.lte = toDate;
+        }
+      }
+    }
+
+    const [transactions, total] = await Promise.all([
+      (this.prisma as any).gameTransaction.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { created_at: 'desc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              pid: true,
+              phone: true,
+            },
+          },
+        },
+      }),
+      (this.prisma as any).gameTransaction.count({ where }),
+    ]);
+
+    // Get unique game UUIDs to fetch game details
+    const gameUuids: string[] = Array.from(
+      new Set(
+        transactions
+          .map((t: any) => t.game_uuid)
+          .filter((uuid: string | null): uuid is string => !!uuid),
+      ),
+    );
+
+    let gamesMap = new Map<
+      string,
+      { name: string | null; image: string | null }
+    >();
+
+    if (gameUuids.length > 0) {
+      const games = await this.prisma.game.findMany({
+        where: {
+          OR: [
+            { game_id: { in: gameUuids } },
+            { game_code: { in: gameUuids } },
+          ],
+        },
+        select: {
+          name: true,
+          image: true,
+          game_id: true,
+          game_code: true,
+        },
+      });
+
+      for (const game of games) {
+        if (game.game_id) {
+          gamesMap.set(game.game_id, {
+            name: game.name,
+            image: game.image,
+          });
+        }
+        gamesMap.set(game.game_code, {
+          name: game.name,
+          image: game.image,
+        });
+      }
+    }
+
+    // Format transactions with game details
+    const formattedTransactions = transactions.map((tx: any) => {
+      const gameInfo = tx.game_uuid ? gamesMap.get(tx.game_uuid) : null;
+      const amount = tx.amount
+        ? typeof tx.amount === 'number'
+          ? tx.amount
+          : Number(tx.amount.toString())
+        : 0;
+
+      // Determine result
+      let result = 'other';
+      if (tx.action === 'bet') {
+        result = 'bet';
+      } else if (tx.action === 'win') {
+        result = amount > 0 ? 'win' : 'loss';
+      }
+
+      return {
+        id: tx.id,
+        user_id: tx.user_id,
+        user_pid: tx.user?.pid || null,
+        user_phone: tx.user?.phone || null,
+        action: tx.action,
+        result,
+        provider: tx.provider,
+        player_id: tx.player_id,
+        session_id: tx.session_id,
+        provider_transaction_id: tx.provider_transaction_id,
+        internal_transaction_id: tx.internal_transaction_id,
+        game_uuid: tx.game_uuid,
+        game_name: gameInfo?.name || null,
+        game_image: gameInfo?.image || null,
+        round_id: tx.round_id,
+        amount,
+        currency: tx.currency,
+        created_at: tx.created_at,
+      };
+    });
+
+    const totalPages = Math.ceil(total / limit);
+
+    return {
+      data: formattedTransactions,
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: totalPages,
+        has_next: page < totalPages,
+        has_prev: page > 1,
+      },
+    };
+  }
 }
