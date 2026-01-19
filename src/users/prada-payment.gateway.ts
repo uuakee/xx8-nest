@@ -283,14 +283,13 @@ export class PradaPaymentGatewayService {
 
         if (needsRollover) {
           const multiplier = userRollover?.rollover_active
-            ? this.getDecimalNumber(
-                userRollover.rollover_multiplier as Prisma.Decimal,
-              )
+            ? this.getDecimalNumber(userRollover.rollover_multiplier)
             : this.getDecimalNumber(
                 settings?.default_rollover_multiplier as Prisma.Decimal,
               ) || 2;
 
-          const amountRequired = this.getDecimalNumber(deposit.amount) * multiplier;
+          const amountRequired =
+            this.getDecimalNumber(deposit.amount) * multiplier;
 
           await (tx as any).rolloverRequirement.create({
             data: {

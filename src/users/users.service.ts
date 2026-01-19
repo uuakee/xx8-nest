@@ -1528,15 +1528,15 @@ export class UsersService {
   }
 
   async getUserRolloverStatus(userId: number) {
-    const requirements = await (this.prisma as any).rolloverRequirement.findMany(
-      {
-        where: {
-          user_id: userId,
-          status: 'ACTIVE',
-        },
-        orderBy: { created_at: 'asc' },
+    const requirements = await (
+      this.prisma as any
+    ).rolloverRequirement.findMany({
+      where: {
+        user_id: userId,
+        status: 'ACTIVE',
       },
-    );
+      orderBy: { created_at: 'asc' },
+    });
 
     if (requirements.length === 0) {
       return {
@@ -1574,5 +1574,14 @@ export class UsersService {
         created_at: req.created_at,
       })),
     };
+  }
+  async ping(userId: number) {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { last_seen_at: new Date() },
+      select: { id: true },
+    });
+
+    return { pong: true };
   }
 }

@@ -26,6 +26,13 @@ export class UsersController {
   };
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('ping')
+  ping(@Req() req: { user?: { sub: number; pid: string } }) {
+    const u = req.user ?? UsersController.defaultUserShape;
+    return this.usersService.ping(u.sub);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('getBalances')
   balances(@Req() req: { user?: { sub: number; pid: string } }) {
     const u = req.user ?? UsersController.defaultUserShape;

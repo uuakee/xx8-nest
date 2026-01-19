@@ -1609,7 +1609,7 @@ export class LobsterService {
       amount: withdrawal.amount,
     });
 
-    const idTransaction = (response as any)?.idTransaction ?? null;
+    const idTransaction = response?.idTransaction ?? null;
     const now = new Date();
 
     await this.prisma.withdrawal.update({
@@ -3118,7 +3118,7 @@ export class LobsterService {
       ),
     );
 
-    let gamesMap = new Map<
+    const gamesMap = new Map<
       string,
       { name: string | null; image: string | null }
     >();

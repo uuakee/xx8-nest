@@ -65,10 +65,7 @@ export class SyscomService {
 
       // Jogos já vêm ordenados por weight DESC do banco
       // Separar hot games e outros, mas manter ordem por peso
-      const ordered = [
-        ...hotGames,
-        ...otherGames,
-      ].slice(0, 12);
+      const ordered = [...hotGames, ...otherGames].slice(0, 12);
 
       const games = ordered.map(({ show_in_home, ...rest }) => rest);
 
