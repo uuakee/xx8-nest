@@ -2688,6 +2688,28 @@ export class LobsterService {
       }),
     ]);
 
+    const onlineWindowMinutes = 5;
+    const onlineSince = new Date(
+      now.getTime() - onlineWindowMinutes * 60 * 1000,
+    );
+
+    const [onlineUsers, totalBalanceAgg] = await Promise.all([
+      this.prisma.user.count({
+        where: {
+          last_seen_at: { gte: onlineSince },
+          status: true,
+          banned: false,
+        },
+      }),
+      this.prisma.user.aggregate({
+        where: {
+          status: true,
+          banned: false,
+        },
+        _sum: { balance: true },
+      }),
+    ]);
+
     return {
       deposits: {
         today: {
@@ -2722,6 +2744,11 @@ export class LobsterService {
         today: usersToday,
         last_7_days: users7d,
         last_30_days: users30d,
+        online: {
+          count: onlineUsers,
+          window_minutes: onlineWindowMinutes,
+        },
+        total_balance: totalBalanceAgg._sum.balance ?? 0,
       },
       games: {
         total: totalGames,
